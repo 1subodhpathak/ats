@@ -13,6 +13,7 @@ import {
   X,
   Phone,
 } from "lucide-react";
+import colorLogo from "../../assets/logos/BlueLogo.png";
 
 const Footer = () => {
   const [isCoffeeOpen, setIsCoffeeOpen] = useState(false);
@@ -26,7 +27,7 @@ const Footer = () => {
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(11,33,70,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(11,33,70,0.03)_1px,transparent_1px)] bg-[size:40px_40px]" />
 
       <div className="relative z-10 mx-auto max-w-[1280px] px-6 lg:px-8">
-        
+
         {/* Top CTA Banner */}
         <div className="mb-16 flex flex-col items-center justify-between gap-6 rounded-[24px] border border-[#E8E1D5] bg-white px-8 py-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] md:flex-row lg:px-10">
           <div>
@@ -48,17 +49,16 @@ const Footer = () => {
 
         {/* Main Footer Grid */}
         <div className="grid grid-cols-1 gap-12 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
-          
+
           {/* Brand Column */}
           <div className="flex flex-col pr-4">
             {/* Recreated Logo from Screenshot */}
             <div className="flex items-center gap-3">
-              <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-[14px] bg-[#0B2146] text-xl font-bold text-white shadow-sm">
-                CS
-              </div>
+              <img src={colorLogo} alt="CareerSense Logo" className="h-[46px] w-[46px] object-contain rounded-xl shadow-xs shrink-0" />
               <div className="flex flex-col justify-center">
                 <span className="text-[22px] font-bold leading-none tracking-tight text-[#0B2146]">
-                  CareerSense
+                  {/* CareerSense */}
+                  <span className="text-[#0D2E63]">Career</span><span className="text-[#306099]">Sense</span>
                 </span>
                 <span className="mt-1 text-[11px] font-bold uppercase tracking-[0.15em] text-[#64748B]">
                   ATS Intelligence
@@ -70,7 +70,7 @@ const Footer = () => {
               Stop guessing what the algorithm wants. The ultimate ATS guidance platform for resume scoring, JD matching, and recruiter readiness checks.
             </p>
 
-            
+
           </div>
 
           {/* Column 2: Simulation Hub */}
@@ -171,7 +171,7 @@ const Footer = () => {
                   Contact Support
                 </a>
               </li>
-              
+
               <li className="my-4 h-px w-full bg-[#E8E1D5]" /> {/* Divider */}
 
               <li className="flex items-center gap-3 text-sm font-medium text-slate-500">
@@ -211,7 +211,7 @@ const Footer = () => {
             &copy; {new Date().getFullYear()} CareerSense AI. All systems operational.
           </p>
 
-          
+
         </div>
       </div>
 

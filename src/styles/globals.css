@@ -38,7 +38,7 @@
   }
 
   .page-shell {
-    @apply w-full px-2 py-3 sm:px-3 lg:px-4;
+    @apply w-full px-0 py-0 sm:px-0 lg:px-0;
   }
 
   .print-report-shell {
@@ -58,7 +58,7 @@
 
 @page {
   size: A4 portrait;
-  margin: 10mm;
+  margin: 0;
 }
 
 @media print {
