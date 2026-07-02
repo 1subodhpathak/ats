@@ -9,6 +9,8 @@ import {
   LayoutDashboard,
   ReceiptText,
   Zap,
+  Menu,
+  X,
 } from "lucide-react";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
 import useResumeStore from "../../store/useResumeStore";
@@ -19,6 +21,7 @@ function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const isLandingPage = location.pathname === "/";
+  const [isMobileNavOpen, setIsMobileNavOpen] = React.useState(false);
 
   const currentResume = useResumeStore((state) => state.currentResume);
   const isResumeJdFlow = !!(currentResume?.latestAnalysis?.jdText || location.pathname.includes("resume-jd"));
@@ -177,9 +180,9 @@ function Navbar() {
 
   const InternalLogo = () => (
     <Link to="/" className="flex shrink-0 items-center gap-3">
-      <img src={colorLogo} alt="CareerSense Logo" className="h-12 w-12 object-contain rounded-2xl shadow-xs shrink-0" />
+      <img src={colorLogo} alt="CareerSense Logo" className="h-10 w-10 sm:h-12 sm:w-12 object-contain rounded-2xl shadow-xs shrink-0" />
 
-      <div className="hidden pr-3 sm:block xl:border-r xl:border-[#D6E1E9]">
+      <div className="pr-3 xl:border-r xl:border-[#D6E1E9]">
         <h1 className="text-[25px] font-black leading-none tracking-[-0.04em]">
           {/* CareerSense */}
           <span className="text-[#0D2E63]">Career</span><span className="text-[#306099]">Sense</span>
@@ -193,7 +196,7 @@ function Navbar() {
 
   const LandingLogo = () => (
     <Link to="/" className="flex shrink-0 items-center gap-3">
-      <img src={colorLogo} alt="CareerSense Logo" className="h-12 w-12 object-contain rounded-2xl shadow-xs shrink-0" />
+      <img src={colorLogo} alt="CareerSense Logo" className="h-10 w-10 sm:h-12 sm:w-12 object-contain rounded-2xl shadow-xs shrink-0" />
 
       <div>
         <h1 className="text-[25px] font-black leading-none tracking-[-0.04em]">
@@ -284,111 +287,243 @@ function Navbar() {
     <header
       className={
         isLandingPage
-          ? "sticky top-0 z-50 w-full bg-transparent border-none shadow-none px-6 pt-4"
-          : "sticky top-0 z-50 border-b backdrop-blur-xl border-[#D6E1E9]/45 bg-[#F7F3ED]/96 px-6 py-3 shadow-[0_8px_22px_rgba(16,36,90,0.04)]"
+          ? "sticky top-0 z-50 w-full bg-transparent border-none shadow-none px-3 pt-3 sm:px-6 sm:pt-4"
+          : "sticky top-0 z-50 border-b backdrop-blur-xl border-[#D6E1E9]/45 bg-[#F7F3ED]/96 px-4 py-2.5 sm:px-6 sm:py-3 shadow-[0_8px_22px_rgba(16,36,90,0.04)]"
       }
     >
       <div
         className={
           isLandingPage
-            ? "mx-auto flex w-full items-center justify-between gap-3 max-w-[1536px] border border-white/60 bg-[#F6F1EA]/60 px-6 py-3.5 shadow-[0_18px_60px_rgba(47,65,86,0.12)] backdrop-blur-2xl rounded-2xl"
-            : "mx-auto flex w-full items-center justify-between gap-3 max-w-[1536px]"
+            ? "mx-auto flex flex-col w-full max-w-[1536px] border border-white/60 bg-[#F6F1EA]/60 px-3 py-2.5 sm:px-6 sm:py-3.5 shadow-[0_18px_60px_rgba(47,65,86,0.12)] backdrop-blur-2xl rounded-xl sm:rounded-2xl"
+            : "mx-auto flex flex-col w-full max-w-[1536px]"
         }
       >
-        {isLandingPage ? <LandingLogo /> : <InternalLogo />}
+        <div className="flex w-full items-center justify-between gap-3">
+          {isLandingPage ? <LandingLogo /> : <InternalLogo />}
 
-        {isLandingPage ? (
-          <nav className="hidden items-center gap-8 md:flex">
-            <button
-              onClick={() => handleScroll("home")}
-              className="text-xs font-bold text-slate-600 transition hover:text-royalblue"
-            >
-              Home
-            </button>
+          {isLandingPage ? (
+            <nav className="hidden items-center gap-8 md:flex">
+              <button
+                onClick={() => handleScroll("home")}
+                className="text-xs font-bold text-slate-600 transition hover:text-royalblue"
+              >
+                Home
+              </button>
 
-            <button
-              onClick={() => handleScroll("why-careersense")}
-              className="text-xs font-bold text-slate-600 transition hover:text-royalblue"
-            >
-              Why CareerSense
-            </button>
+              <button
+                onClick={() => handleScroll("why-careersense")}
+                className="text-xs font-bold text-slate-600 transition hover:text-royalblue"
+              >
+                Why CareerSense
+              </button>
 
-            <button
-              onClick={() => handleScroll("how-it-works")}
-              className="text-xs font-bold text-slate-600 transition hover:text-royalblue"
-            >
-              How It Works
-            </button>
+              <button
+                onClick={() => handleScroll("how-it-works")}
+                className="text-xs font-bold text-slate-600 transition hover:text-royalblue"
+              >
+                How It Works
+              </button>
 
-            <button
-              onClick={() => handleScroll("testimony")}
-              className="text-xs font-bold text-slate-600 transition hover:text-royalblue"
-            >
-              Testimonials
-            </button>
-          </nav>
-        ) : (
-          <div className="hidden min-w-0 flex-1 items-center gap-3 lg:flex">
-            <InternalStepper />
-            <InternalActions />
-          </div>
-        )}
+              <button
+                onClick={() => handleScroll("testimony")}
+                className="text-xs font-bold text-slate-600 transition hover:text-royalblue"
+              >
+                Testimonials
+              </button>
+            </nav>
+          ) : (
+            <div className="hidden min-w-0 flex-1 items-center gap-3 lg:flex">
+              <InternalStepper />
+              <InternalActions />
+            </div>
+          )}
 
-        {!isLandingPage ? (
-          <div className="flex items-center gap-2 lg:hidden">
-            <NavLink
-              to="/dashboard"
-              className={({ isActive }) =>
-                `flex items-center gap-1 rounded-xl border px-3 py-2 text-xs font-black transition ${isActive
-                  ? "border-[#CFE0EC] bg-[#E8EEF4] text-[#2F4054]"
-                  : "border-[#D6E1E9] bg-white text-[#6B87A0]"
-                }`
-              }
-            >
-              <LayoutDashboard className="h-3.5 w-3.5" />
-              Dashboard
-            </NavLink>
+          {isLandingPage ? (
+            <div className="flex items-center gap-3">
+              <div className="hidden items-center gap-3 md:flex">
+                <SignedOut>
+                  <SignInButton mode="modal">
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 rounded-lg border border-royalblue/30 px-4 py-2 text-xs font-bold text-royalblue hover:bg-royalblue/5 transition"
+                    >
+                      Sign In
+                    </button>
+                  </SignInButton>
+                </SignedOut>
+                <SignedIn>
+                  <Link to="/check-ats" className="shrink-0">
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 rounded-lg bg-royalblue px-4 py-2 text-xs font-bold text-swanwing shadow-sm transition hover:bg-sapphire"
+                    >
+                      Check ATS
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </Link>
+                </SignedIn>
+              </div>
 
-            <button
-              type="button"
-              onClick={handleBack}
-              className="flex items-center gap-1 rounded-xl border border-[#D6E1E9] bg-white px-3 py-2 text-xs font-black text-[#2F4054]"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              Back
-            </button>
-          </div>
-        ) : null}
+              <SignedIn>
+                <UserButton afterSignOutUrl="/" />
+              </SignedIn>
 
-        {isLandingPage ? (
-          <div className="flex items-center gap-3">
-            <SignedOut>
-              <SignInButton mode="modal">
+              <button
+                type="button"
+                onClick={() => setIsMobileNavOpen((prev) => !prev)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#D6E1E9]/80 bg-white/80 text-[#2F4054] md:hidden shadow-xs hover:bg-white transition"
+              >
+                {isMobileNavOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <SignedIn>
+                <UserButton afterSignOutUrl="/" />
+              </SignedIn>
+
+              <button
+                type="button"
+                onClick={() => setIsMobileNavOpen((prev) => !prev)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#D6E1E9]/80 bg-white/80 text-[#2F4054] lg:hidden shadow-xs hover:bg-white transition"
+              >
+                {isMobileNavOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Dropdown Menu */}
+        {isMobileNavOpen && (
+          <div className="w-full border-t border-[#D6E1E9]/40 mt-3 pt-3 md:hidden">
+            {isLandingPage ? (
+              <nav className="flex flex-col gap-2.5">
                 <button
-                  type="button"
-                  className="flex items-center gap-1 rounded-lg border border-royalblue/30 px-4 py-2 text-xs font-bold text-royalblue hover:bg-royalblue/5 transition"
+                  onClick={() => {
+                    handleScroll("home");
+                    setIsMobileNavOpen(false);
+                  }}
+                  className="w-full text-left rounded-lg bg-white/40 px-3 py-2.5 text-xs font-bold text-slate-600 hover:bg-white transition"
                 >
-                  Sign In
+                  Home
                 </button>
-              </SignInButton>
-            </SignedOut>
-            <SignedIn>
-              <Link to="/check-ats" className="shrink-0">
                 <button
-                  type="button"
-                  className="flex items-center gap-1 rounded-lg bg-royalblue px-4 py-2 text-xs font-bold text-swanwing shadow-sm transition hover:bg-sapphire"
+                  onClick={() => {
+                    handleScroll("why-careersense");
+                    setIsMobileNavOpen(false);
+                  }}
+                  className="w-full text-left rounded-lg bg-white/40 px-3 py-2.5 text-xs font-bold text-slate-600 hover:bg-white transition"
                 >
-                  Check ATS
-                  <ChevronRight className="h-3.5 w-3.5" />
+                  Why CareerSense
                 </button>
-              </Link>
-              <UserButton afterSignOutUrl="/" />
-            </SignedIn>
+                <button
+                  onClick={() => {
+                    handleScroll("how-it-works");
+                    setIsMobileNavOpen(false);
+                  }}
+                  className="w-full text-left rounded-lg bg-white/40 px-3 py-2.5 text-xs font-bold text-slate-600 hover:bg-white transition"
+                >
+                  How It Works
+                </button>
+                <button
+                  onClick={() => {
+                    handleScroll("testimony");
+                    setIsMobileNavOpen(false);
+                  }}
+                  className="w-full text-left rounded-lg bg-white/40 px-3 py-2.5 text-xs font-bold text-slate-600 hover:bg-white transition"
+                >
+                  Testimonials
+                </button>
+
+                <div className="border-t border-[#D6E1E9]/30 mt-1 pt-2">
+                  <SignedOut>
+                    <SignInButton mode="modal">
+                      <button
+                        type="button"
+                        onClick={() => setIsMobileNavOpen(false)}
+                        className="w-full rounded-lg bg-royalblue py-2.5 text-center text-xs font-bold text-swanwing transition hover:bg-sapphire"
+                      >
+                        Sign In
+                      </button>
+                    </SignInButton>
+                  </SignedOut>
+                  <SignedIn>
+                    <Link to="/check-ats" onClick={() => setIsMobileNavOpen(false)}>
+                      <button
+                        type="button"
+                        className="w-full rounded-lg bg-royalblue py-2.5 text-center text-xs font-bold text-swanwing transition hover:bg-sapphire"
+                      >
+                        Check ATS
+                      </button>
+                    </Link>
+                  </SignedIn>
+                </div>
+              </nav>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {/* Stepper info */}
+                <div className="rounded-xl bg-[#E8EEF4]/50 p-2.5 text-xs text-[#2F4054]">
+                  <p className="font-black text-[#2F4054] mb-1 text-[10px] tracking-wider uppercase">ATS Progress</p>
+                  <div className="flex flex-col gap-1.5 font-bold">
+                    {workflowSteps.map((step, index) => {
+                      const stepNumber = index + 1;
+                      const isComplete = stepNumber < currentStep;
+                      const isCurrent = stepNumber === currentStep;
+                      return (
+                        <div key={step.key} className="flex items-center gap-2">
+                          <span className={`h-5 w-5 flex items-center justify-center rounded-full text-[10px] shrink-0 ${
+                            isComplete ? "bg-[#6D879A] text-white" : isCurrent ? "bg-[#2F4054] text-white" : "bg-[#D8E3EB] text-[#6B87A0]"
+                          }`}>
+                            {isComplete ? "✓" : stepNumber}
+                          </span>
+                          <span className={isCurrent ? "text-[#2F4054] font-black" : "text-[#6B87A0]"}>
+                            {step.label}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Metrics */}
+                <div className="flex flex-col gap-2 rounded-xl bg-white/70 p-2.5 border border-[#CFE0EC]/40">
+                  <div className="flex items-center justify-between text-xs font-bold text-[#6B87A0]">
+                    <span>Points Available</span>
+                    <span className="text-sm font-black text-[#2F4054]">{new Intl.NumberFormat().format(totalPoints)}</span>
+                  </div>
+                  <div className="h-px bg-slate-100" />
+                  <div className="flex items-center justify-between text-xs font-bold text-[#6B87A0]">
+                    <span>Estimated Bill</span>
+                    <span className="text-sm font-black text-[#2F4054]">{`$${estimatedCost.toFixed(4)}`}</span>
+                  </div>
+                </div>
+
+                {/* Navigation actions */}
+                <div className="grid grid-cols-2 gap-2">
+                  <Link to="/dashboard" onClick={() => setIsMobileNavOpen(false)} className="w-full">
+                    <button
+                      type="button"
+                      className="w-full flex h-10 items-center justify-center gap-2 rounded-xl border border-[#CFE0EC] bg-white px-3 text-[13px] font-black text-[#2F4054]"
+                    >
+                      <LayoutDashboard className="h-4 w-4" />
+                      Dashboard
+                    </button>
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleBack();
+                      setIsMobileNavOpen(false);
+                    }}
+                    className="w-full flex h-10 items-center justify-center gap-2 rounded-xl border border-[#CFE0EC] bg-white px-3 text-[13px] font-black text-[#2F4054]"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        ) : (
-          <SignedIn>
-            <UserButton afterSignOutUrl="/" />
-          </SignedIn>
         )}
       </div>
     </header>
