@@ -661,7 +661,7 @@ function ATSJobDetailsPage() {
         jd_text: jobDescription,
       });
 
-      navigate(`/reports/analysis/${response.data.analysis_id}`);
+      navigate(`/reports/analysis/${activeResumeId}`);
     } catch (error) {
       setAnalysisState({
         status: "error",

@@ -21,6 +21,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
+import colorLogo from "../assets/logos/BlueLogo.png";
 
 import Loader from "../components/common/Loader";
 import Toast from "../components/common/Toast";
@@ -182,14 +183,12 @@ function DashboardSidebar({ activeSection, onSelectSection }) {
         to="/"
         className="flex items-center gap-4 border-b border-[#D7E3EC] px-8 py-8 transition hover:bg-white/20"
       >
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#2F4054] text-white shadow-[0_14px_32px_rgba(18,36,72,0.18)]">
-          <FileText className="h-7 w-7" />
-        </div>
+        <img src={colorLogo} alt="CareerSense Logo" className="h-14 w-14 object-contain rounded-2xl shadow-xs shrink-0" />
         <div>
           <p className="text-[2rem] font-black leading-none tracking-[-0.04em] text-[#2F4054]">
-            CareerSense
+            <span className="text-[#0D2E63]">Career</span><span className="text-[#306099]">Sense</span>
           </p>
-          <p className="mt-1 text-[12px] font-black uppercase tracking-[0.28em] text-[#6B88A0]">
+          <p className="mt-1 text-[12px] font-black uppercase tracking-[0.28em] text-[#6B87A0]">
             Workspace
           </p>
         </div>
@@ -204,8 +203,8 @@ function DashboardSidebar({ activeSection, onSelectSection }) {
               type="button"
               onClick={() => onSelectSection(id)}
               className={`flex w-full items-center gap-4 rounded-[20px] border px-5 py-4 text-left transition ${active
-                  ? "border-[#D4E0EA] bg-[#DCE7F1] text-[#2F4054] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.3)]"
-                  : "border-transparent bg-transparent text-[#66859C] hover:border-[#D8E3EC] hover:bg-white/45"
+                ? "border-[#D4E0EA] bg-[#DCE7F1] text-[#2F4054] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.3)]"
+                : "border-transparent bg-transparent text-[#66859C] hover:border-[#D8E3EC] hover:bg-white/45"
                 }`}
             >
               <Icon className="h-6 w-6" />
@@ -566,6 +565,8 @@ function ReportsSection({ reports }) {
                 </div>
                 <a
                   href={getSavedReportPdfUrl(report.report_id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 rounded-[16px] border border-[#CFE0EC] bg-white px-4 py-3 text-sm font-bold text-[#2F4054]"
                 >
                   <Download className="h-4 w-4" />

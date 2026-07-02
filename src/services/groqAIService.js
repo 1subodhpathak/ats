@@ -357,7 +357,7 @@ const runLocalFiftyPointHeuristics = (resumeText, isModeB, jdText) => {
   for (const cat of categories) {
     for (let i = 0; i < 10; i++) {
       const passed = i % 3 !== 0;
-      pointers.append ? pointers.push({
+      pointers.push({
         pointer_id: pointerIdx,
         category: cat,
         title: `Checklist audit: ${cat} checkpoint #${i + 1}`,
@@ -369,7 +369,7 @@ const runLocalFiftyPointHeuristics = (resumeText, isModeB, jdText) => {
         affected_resume_area: "Experience / Skills bullet listings",
         severity: passed ? "low" : "medium",
         recommended_rewrite: "Refined bullet point demonstrating outcomes and tools."
-      }) : null;
+      });
       pointerIdx++;
     }
   }
@@ -431,7 +431,7 @@ export const evaluateFiftyPointAnalysis = async (resumeText, jdText = null) => {
     const prompt = isModeB
       ? buildFiftyPointJdPrompt(resumeText, jdText)
       : buildFiftyPointResumePrompt(resumeText);
-    const data = await requestCompletions(prompt, 0.15, 2000);
+    const data = await requestCompletions(prompt, 0.15, 8192);
     return data;
   } catch (error) {
     console.error("Groq 50-point analysis failed, fallback to local heuristics:", error);

@@ -5,10 +5,13 @@ import Navbar from "./Navbar";
 
 function AppLayout() {
   const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const isPrintMode = queryParams.get("printMode") === "1";
+  const isEmbedded = queryParams.get("embeddedPreview") === "1";
   const isResumeGameRoute = location.pathname === "/play-with-resume";
   const isHomeRoute = location.pathname === "/";
   const isDashboardRoute = location.pathname === "/dashboard";
-  const shouldHideNavbar = isResumeGameRoute || isDashboardRoute;
+  const shouldHideNavbar = isResumeGameRoute || isDashboardRoute || isPrintMode || isEmbedded;
 
   return (
     <div className="min-h-screen">

@@ -18,20 +18,15 @@ const AnimatedHeroBackground = () => {
   const bgLight2 = useTransform(scrollY, scrollRange, ["#F5F0E9", "#E0C58F"]);
   const bgLight3 = useTransform(scrollY, scrollRange, ["#E0C58F", "#D9CBC2"]);
 
-  // DARK MODE: Royal Blue, Sapphire, Quicksand blends
-  const bgDark1 = useTransform(scrollY, scrollRange, ["#112250", "#3C507D"]);
-  const bgDark2 = useTransform(scrollY, scrollRange, ["#3C507D", "#112250"]);
-  const bgDark3 = useTransform(scrollY, scrollRange, ["#E0C58F", "#3C507D"]);
-
   if (useStaticBackdrop) {
     return <StaticHeroBackground />;
   }
 
   return (
-    <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-[#F5F0E9] dark:bg-[#112250]">
-      {/* 1. STRUCTURAL GRID (Sapphire Blue Base) */}
+    <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-[#F5F0E9]">
+      {/* 1. STRUCTURAL GRID */}
       <div
-        className="absolute inset-0 opacity-60 dark:opacity-40"
+        className="absolute inset-0 opacity-60"
         style={{
           backgroundImage: `
             linear-gradient(to right, rgba(60, 80, 125, 0.15) 1px, transparent 1px),
@@ -46,9 +41,8 @@ const AnimatedHeroBackground = () => {
       />
 
       {/* 2. SCROLL-DRIVEN AURORA BLOOMS */}
-      <div className="absolute inset-0 opacity-60 dark:opacity-40 mix-blend-multiply dark:mix-blend-screen saturate-125">
-        {/* LIGHT MODE ORBS */}
-        <div className="block dark:hidden absolute inset-0">
+      <div className="absolute inset-0 opacity-60 mix-blend-multiply saturate-125">
+        <div className="absolute inset-0">
           <motion.div
             style={{ backgroundColor: bgLight1 }}
             animate={
@@ -101,65 +95,10 @@ const AnimatedHeroBackground = () => {
             className="absolute -bottom-[20%] left-[10%] w-[60vw] h-[40vw] rounded-full blur-[140px]"
           />
         </div>
-
-        {/* DARK MODE ORBS */}
-        <div className="hidden dark:block absolute inset-0">
-          <motion.div
-            style={{ backgroundColor: bgDark1 }}
-            animate={
-              reduceMotion
-                ? undefined
-                : {
-                  x: ["0%", "40%", "-10%", "0%"],
-                  y: ["0%", "30%", "-10%", "0%"],
-                }
-            }
-            transition={{ duration: 20, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute -top-[10%] -left-[10%] w-[50vw] h-[50vw] rounded-full blur-[120px] opacity-50"
-          />
-
-          <motion.div
-            style={{ backgroundColor: bgDark2 }}
-            animate={
-              reduceMotion
-                ? undefined
-                : {
-                  x: ["0%", "-50%", "20%", "0%"],
-                  y: ["0%", "-40%", "30%", "0%"],
-                }
-            }
-            transition={{
-              duration: 24,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 2,
-            }}
-            className="absolute top-[20%] -right-[10%] w-[45vw] h-[45vw] rounded-full blur-[130px] opacity-60"
-          />
-
-          <motion.div
-            style={{ backgroundColor: bgDark3 }}
-            animate={
-              reduceMotion
-                ? undefined
-                : {
-                  x: ["0%", "60%", "-20%", "0%"],
-                  y: ["0%", "-50%", "10%", "0%"],
-                }
-            }
-            transition={{
-              duration: 28,
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 1,
-            }}
-            className="absolute -bottom-[20%] left-[10%] w-[60vw] h-[40vw] rounded-full blur-[140px] opacity-40"
-          />
-        </div>
       </div>
 
-      {/* 3. INTELLIGENT FLOW LINES (Sapphire to Quicksand) */}
-      <svg className="absolute inset-0 w-full h-full opacity-60 dark:opacity-40">
+      {/* 3. INTELLIGENT FLOW LINES */}
+      <svg className="absolute inset-0 w-full h-full opacity-60">
         <defs>
           <linearGradient id="flowLineGrad" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#3C507D" stopOpacity="0" />
@@ -226,16 +165,16 @@ const AnimatedHeroBackground = () => {
       </svg>
 
       {/* 4. SEAMLESS BLEND MASKS */}
-      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#F5F0E9] dark:from-[#112250] to-transparent z-10" />
-      <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#F5F0E9] dark:from-[#112250] to-transparent z-10" />
+      <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#F5F0E9] to-transparent z-10" />
+      <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#F5F0E9] to-transparent z-10" />
     </div>
   );
 };
 
 const StaticHeroBackground = () => (
-  <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-[#F5F0E9] dark:bg-[#112250]">
+  <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden bg-[#F5F0E9]">
     <div
-      className="absolute inset-0 opacity-45 dark:opacity-30"
+      className="absolute inset-0 opacity-45"
       style={{
         backgroundImage: `
           linear-gradient(to right, rgba(60, 80, 125, 0.15) 1px, transparent 1px),
@@ -249,11 +188,9 @@ const StaticHeroBackground = () => (
       }}
     />
     {/* Static gradients adapted for the new palette */}
-    <div className="absolute inset-0 block dark:hidden bg-[radial-gradient(circle_at_16%_18%,rgba(217,203,194,0.72),transparent_34%),radial-gradient(circle_at_86%_24%,rgba(224,197,143,0.14),transparent_36%),linear-gradient(180deg,rgba(245,240,233,0.72),rgba(255,255,255,0.46)_58%,rgba(245,240,233,0.92))]" />
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_16%_18%,rgba(217,203,194,0.72),transparent_34%),radial-gradient(circle_at_86%_24%,rgba(224,197,143,0.14),transparent_36%),linear-gradient(180deg,rgba(245,240,233,0.72),rgba(255,255,255,0.46)_58%,rgba(245,240,233,0.92))]" />
 
-    <div className="absolute inset-0 hidden dark:block bg-[radial-gradient(circle_at_16%_18%,rgba(60,80,125,0.4),transparent_40%),radial-gradient(circle_at_86%_24%,rgba(224,197,143,0.1),transparent_40%),linear-gradient(180deg,rgba(17,34,80,0.8),rgba(17,34,80,0.4)_58%,rgba(17,34,80,0.95))]" />
-
-    <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#F5F0E9] dark:from-[#112250] to-transparent" />
+    <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#F5F0E9] to-transparent" />
   </div>
 );
 

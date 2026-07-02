@@ -530,7 +530,7 @@ function ATSResumeUploadPage() {
         resume_id: resumeData.resume_id,
       });
 
-      navigate(`/reports/analysis/${response.data.analysis_id}`);
+      navigate(`/reports/analysis/${resumeData.resume_id}`);
     } catch (error) {
       setActionError(
         error?.response?.data?.detail ||

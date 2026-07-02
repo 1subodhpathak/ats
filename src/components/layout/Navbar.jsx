@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
 import useResumeStore from "../../store/useResumeStore";
+import colorLogo from "../../assets/logos/BlueLogo.png";
+import apiClient from "../../services/apiClient";
 
 function Navbar() {
   const location = useLocation();
@@ -21,18 +23,70 @@ function Navbar() {
   const currentResume = useResumeStore((state) => state.currentResume);
   const isResumeJdFlow = !!(currentResume?.latestAnalysis?.jdText || location.pathname.includes("resume-jd"));
 
+  const [totalPoints, setTotalPoints] = React.useState(0);
+  const [estimatedCost, setEstimatedCost] = React.useState(0);
+
+  React.useEffect(() => {
+    let active = true;
+    async function fetchUsage() {
+      try {
+        const [resumesRes, jdsRes] = await Promise.all([
+          apiClient.get("/all"),
+          apiClient.get("/job-descriptions")
+        ]);
+        if (!active) return;
+
+        const resumes = resumesRes.data.storedResumes || [];
+        const jds = jdsRes.data.storedJobDescriptions || [];
+
+        // Adapt resumes to reports
+        const reports = resumes
+          .filter((r) => r.latestAnalysis && r.latestAnalysis.overall_score)
+          .map((resume) => ({
+            report_id: resume.resume_id,
+            overall_score: resume.latestAnalysis.overall_score,
+            has_job_description: !!resume.latestAnalysis.jdText,
+          }));
+
+        // Estimate units
+        const reportUnits = reports.reduce((total, r) => {
+          const base = r.has_job_description ? 1825 : 1350;
+          const scoreBonus = Math.round((r.overall_score || 0) * 4.75);
+          return total + base + scoreBonus;
+        }, 0);
+
+        const resumeUnits = resumes.length * 180;
+        const jdUnits = jds.length * 95;
+
+        const sum = reportUnits + resumeUnits + jdUnits;
+        setTotalPoints(sum);
+        setEstimatedCost(sum / 100000);
+      } catch (err) {
+        console.error("Navbar failed to fetch usage metrics:", err);
+      }
+    }
+
+    // Only fetch if on internal/auth routes, not landing page
+    if (!isLandingPage) {
+      fetchUsage();
+    }
+    return () => {
+      active = false;
+    };
+  }, [currentResume, isLandingPage]);
+
   const workflowSteps = isResumeJdFlow
     ? [
-        { key: "details", label: "Details" },
-        { key: "resume", label: "Resume" },
-        { key: "job", label: "Job Details" },
-        { key: "editor", label: "Editor" },
-      ]
+      { key: "details", label: "Details" },
+      { key: "resume", label: "Resume" },
+      { key: "job", label: "Job Details" },
+      { key: "editor", label: "Editor" },
+    ]
     : [
-        { key: "details", label: "Details" },
-        { key: "resume", label: "Resume" },
-        { key: "editor", label: "Editor" },
-      ];
+      { key: "details", label: "Details" },
+      { key: "resume", label: "Resume" },
+      { key: "editor", label: "Editor" },
+    ];
 
   const getCurrentStep = () => {
     if (
@@ -103,7 +157,7 @@ function Navbar() {
           Points
         </span>
         <span className="text-sm font-black tracking-tight text-[#2F4054]">
-          0
+          {new Intl.NumberFormat().format(totalPoints)}
         </span>
       </div>
 
@@ -115,7 +169,7 @@ function Navbar() {
           Bill
         </span>
         <span className="text-sm font-black tracking-tight text-[#2F4054]">
-          $0.0000
+          {`$${estimatedCost.toFixed(4)}`}
         </span>
       </div>
     </div>
@@ -123,15 +177,14 @@ function Navbar() {
 
   const InternalLogo = () => (
     <Link to="/" className="flex shrink-0 items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2F4054] text-white shadow-[0_10px_22px_rgba(16,36,90,0.14)]">
-        <FileText className="h-5 w-5" />
-      </div>
+      <img src={colorLogo} alt="CareerSense Logo" className="h-12 w-12 object-contain rounded-2xl shadow-xs shrink-0" />
 
       <div className="hidden pr-3 sm:block xl:border-r xl:border-[#D6E1E9]">
-        <h1 className="text-[15px] font-black leading-none tracking-tight text-[#2F4054]">
-          CareerSense
+        <h1 className="text-[25px] font-black leading-none tracking-[-0.04em]">
+          {/* CareerSense */}
+          <span className="text-[#0D2E63]">Career</span><span className="text-[#306099]">Sense</span>
         </h1>
-        <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.18em] text-[#6B87A0]">
+        <p className="mt-1 text-[9px] font-black uppercase tracking-[0.28em] text-[#6B87A0]">
           ATS Intelligence
         </p>
       </div>
@@ -140,15 +193,14 @@ function Navbar() {
 
   const LandingLogo = () => (
     <Link to="/" className="flex shrink-0 items-center gap-3">
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-royalblue text-swanwing shadow-md">
-        <span className="text-lg font-black">CS</span>
-      </div>
+      <img src={colorLogo} alt="CareerSense Logo" className="h-12 w-12 object-contain rounded-2xl shadow-xs shrink-0" />
 
       <div>
-        <h1 className="text-base font-black leading-none tracking-tight text-royalblue">
-          CareerSense
+        <h1 className="text-[25px] font-black leading-none tracking-[-0.04em]">
+          {/* CareerSense */}
+          <span className="text-[#0D2E63]">Career</span><span className="text-[#306099]">Sense</span>
         </h1>
-        <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.2em] text-sapphire">
+        <p className="mt-1 text-[9px] font-black uppercase tracking-[0.28em] text-[#6B87A0]">
           ATS Intelligence
         </p>
       </div>
@@ -165,26 +217,23 @@ function Navbar() {
         return (
           <React.Fragment key={step.key}>
             <div
-              className={`flex min-w-0 items-center gap-1.5 rounded-full px-2 py-1.5 transition ${
-                isCurrent ? "bg-[#E8EEF4]" : "bg-transparent"
-              }`}
+              className={`flex min-w-0 items-center gap-1.5 rounded-full px-2 py-1.5 transition ${isCurrent ? "bg-[#E8EEF4]" : "bg-transparent"
+                }`}
             >
               <div
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-black ${
-                  isComplete
-                    ? "bg-[#6D879A] text-white"
-                    : isCurrent
-                      ? "bg-[#2F4054] text-white"
-                      : "bg-[#D8E3EB] text-[#6B87A0]"
-                }`}
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-black ${isComplete
+                  ? "bg-[#6D879A] text-white"
+                  : isCurrent
+                    ? "bg-[#2F4054] text-white"
+                    : "bg-[#D8E3EB] text-[#6B87A0]"
+                  }`}
               >
                 {isComplete ? <Check className="h-3.5 w-3.5" /> : stepNumber}
               </div>
 
               <span
-                className={`hidden whitespace-nowrap text-[13px] font-black tracking-tight xl:inline ${
-                  isCurrent ? "text-[#2F4054]" : "text-[#6B87A0]"
-                }`}
+                className={`hidden whitespace-nowrap text-[13px] font-black tracking-tight xl:inline ${isCurrent ? "text-[#2F4054]" : "text-[#6B87A0]"
+                  }`}
               >
                 {step.label}
               </span>
@@ -233,16 +282,18 @@ function Navbar() {
 
   return (
     <header
-      className={`sticky top-0 z-50 border-b backdrop-blur-xl ${
+      className={
         isLandingPage
-          ? "border-shellstone/50 bg-swanwing/95 px-6 py-3 shadow-xs"
-          : "border-[#D6E1E9] bg-[#F7F3ED]/96 px-4 py-2.5 shadow-[0_8px_22px_rgba(16,36,90,0.04)] lg:px-6"
-      }`}
+          ? "sticky top-0 z-50 w-full bg-transparent border-none shadow-none px-6 pt-4"
+          : "sticky top-0 z-50 border-b backdrop-blur-xl border-[#D6E1E9]/45 bg-[#F7F3ED]/96 px-6 py-3 shadow-[0_8px_22px_rgba(16,36,90,0.04)]"
+      }
     >
       <div
-        className={`mx-auto flex items-center justify-between gap-3 ${
-          isLandingPage ? "max-w-7xl" : "max-w-[1680px]"
-        }`}
+        className={
+          isLandingPage
+            ? "mx-auto flex w-full items-center justify-between gap-3 max-w-[1536px] border border-white/60 bg-[#F6F1EA]/60 px-6 py-3.5 shadow-[0_18px_60px_rgba(47,65,86,0.12)] backdrop-blur-2xl rounded-2xl"
+            : "mx-auto flex w-full items-center justify-between gap-3 max-w-[1536px]"
+        }
       >
         {isLandingPage ? <LandingLogo /> : <InternalLogo />}
 
@@ -288,10 +339,9 @@ function Navbar() {
             <NavLink
               to="/dashboard"
               className={({ isActive }) =>
-                `flex items-center gap-1 rounded-xl border px-3 py-2 text-xs font-black transition ${
-                  isActive
-                    ? "border-[#CFE0EC] bg-[#E8EEF4] text-[#2F4054]"
-                    : "border-[#D6E1E9] bg-white text-[#6B87A0]"
+                `flex items-center gap-1 rounded-xl border px-3 py-2 text-xs font-black transition ${isActive
+                  ? "border-[#CFE0EC] bg-[#E8EEF4] text-[#2F4054]"
+                  : "border-[#D6E1E9] bg-white text-[#6B87A0]"
                 }`
               }
             >
@@ -323,7 +373,6 @@ function Navbar() {
               </SignInButton>
             </SignedOut>
             <SignedIn>
-              <UserButton afterSignOutUrl="/" />
               <Link to="/check-ats" className="shrink-0">
                 <button
                   type="button"
@@ -333,6 +382,7 @@ function Navbar() {
                   <ChevronRight className="h-3.5 w-3.5" />
                 </button>
               </Link>
+              <UserButton afterSignOutUrl="/" />
             </SignedIn>
           </div>
         ) : (
