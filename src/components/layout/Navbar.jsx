@@ -399,7 +399,7 @@ function Navbar() {
 
         {/* Mobile Dropdown Menu */}
         {isMobileNavOpen && (
-          <div className="w-full border-t border-[#D6E1E9]/40 mt-3 pt-3 md:hidden">
+          <div className={`w-full border-t border-[#D6E1E9]/40 mt-3 pt-3 ${isLandingPage ? "md:hidden" : "lg:hidden"}`}>
             {isLandingPage ? (
               <nav className="flex flex-col gap-2.5">
                 <button

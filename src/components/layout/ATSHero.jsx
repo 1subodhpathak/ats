@@ -142,23 +142,23 @@ const ATSHero = () => {
         borderColor: colors.border,
       }}
     >
+      {!isSampleReportOpen ? <AnimatedHeroBackground /> : null}
+
+      <div
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{
+          background:
+            "radial-gradient(circle at 47% 42%, rgba(226,191,127,0.2), transparent 34%), linear-gradient(180deg, rgba(246,241,234,0.62), rgba(246,241,234,0.16) 38%, rgba(246,241,234,0.88) 100%)",
+        }}
+      />
+
       <div
         className="relative mx-auto overflow-hidden px-6 py-5 sm:px-8 lg:px-12 lg:py-5"
         style={{
-          maxWidth: "1440px",
+          maxWidth: "2340px",
           minHeight: "calc(100vh - 72px)",
         }}
       >
-        {!isSampleReportOpen ? <AnimatedHeroBackground /> : null}
-
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{
-            background:
-              "radial-gradient(circle at 47% 42%, rgba(226,191,127,0.2), transparent 34%), linear-gradient(180deg, rgba(246,241,234,0.62), rgba(246,241,234,0.16) 38%, rgba(246,241,234,0.88) 100%)",
-          }}
-        />
-
         <div className="relative z-10 grid items-start gap-8 lg:grid-cols-2 lg:gap-10">
           <motion.div
             initial={reduceMotion ? false : { opacity: 0, y: 14 }}
@@ -273,10 +273,11 @@ const ATSHero = () => {
                     delay: 0.1 + index * 0.05,
                     ease: [0.16, 1, 0.3, 1],
                   }}
+                  className="h-full"
                 >
                   <Link
                     to={to}
-                    className="group flex flex-col rounded-2xl border bg-white p-4 transition duration-300 hover:-translate-y-1"
+                    className="group flex flex-col h-full rounded-2xl border bg-white p-4 transition duration-300 hover:-translate-y-1"
                     style={{
                       minHeight: "185px",
                       borderColor: "#E5E0DA",
@@ -474,15 +475,15 @@ const ATSHero = () => {
                                 ? undefined
                                 : isActive
                                   ? {
-                                      opacity: 1,
-                                      y: [0, -2, 0],
-                                      scale: [1, 1.01, 1],
-                                    }
+                                    opacity: 1,
+                                    y: [0, -2, 0],
+                                    scale: [1, 1.01, 1],
+                                  }
                                   : {
-                                      opacity: 1,
-                                      y: 0,
-                                      scale: 1,
-                                    }
+                                    opacity: 1,
+                                    y: 0,
+                                    scale: 1,
+                                  }
                             }
                             whileHover={{ y: -2 }}
                             className="flex items-center gap-4 rounded-2xl border px-4 py-2.5"
@@ -529,11 +530,11 @@ const ATSHero = () => {
                                   ? undefined
                                   : isActive
                                     ? {
-                                        scale: [1, 1.08, 1],
-                                      }
+                                      scale: [1, 1.08, 1],
+                                    }
                                     : {
-                                        scale: 1,
-                                      }
+                                      scale: 1,
+                                    }
                               }
                               transition={{
                                 duration: 0.7,
@@ -587,13 +588,13 @@ const ATSHero = () => {
                                   ? undefined
                                   : isActive
                                     ? {
-                                        x: [0, 3, 0],
-                                        scale: [1, 1.04, 1],
-                                      }
+                                      x: [0, 3, 0],
+                                      scale: [1, 1.04, 1],
+                                    }
                                     : {
-                                        x: 0,
-                                        scale: 1,
-                                      }
+                                      x: 0,
+                                      scale: 1,
+                                    }
                               }
                               transition={{
                                 duration: 0.75,
@@ -669,75 +670,75 @@ const ATSHero = () => {
 
       {typeof document !== "undefined"
         ? createPortal(
-            <AnimatePresence>
-              {isSampleReportOpen ? (
+          <AnimatePresence>
+            {isSampleReportOpen ? (
+              <motion.div
+                initial={reduceMotion ? false : { opacity: 0 }}
+                animate={reduceMotion ? undefined : { opacity: 1 }}
+                exit={reduceMotion ? undefined : { opacity: 0 }}
+                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/55 p-4"
+              >
                 <motion.div
-                  initial={reduceMotion ? false : { opacity: 0 }}
-                  animate={reduceMotion ? undefined : { opacity: 1 }}
-                  exit={reduceMotion ? undefined : { opacity: 0 }}
-                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                  className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/55 p-4"
+                  initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.985 }}
+                  animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
+                  exit={reduceMotion ? undefined : { opacity: 0, y: 8, scale: 0.99 }}
+                  transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                  className="flex h-[92vh] w-full max-w-[1180px] flex-col overflow-hidden rounded-[28px] border bg-white shadow-[0_28px_80px_rgba(16,36,90,0.22)]"
+                  style={{ borderColor: "#D8DFE7" }}
                 >
-                  <motion.div
-                    initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.985 }}
-                    animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
-                    exit={reduceMotion ? undefined : { opacity: 0, y: 8, scale: 0.99 }}
-                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                    className="flex h-[92vh] w-full max-w-[1180px] flex-col overflow-hidden rounded-[28px] border bg-white shadow-[0_28px_80px_rgba(16,36,90,0.22)]"
-                    style={{ borderColor: "#D8DFE7" }}
+                  <div
+                    className="flex items-center justify-between gap-4 border-b px-5 py-4"
+                    style={{
+                      borderColor: "#E4DDD4",
+                      background:
+                        "linear-gradient(180deg, rgba(246,241,234,0.7), rgba(255,255,255,0.95))",
+                    }}
                   >
-                    <div
-                      className="flex items-center justify-between gap-4 border-b px-5 py-4"
-                      style={{
-                        borderColor: "#E4DDD4",
-                        background:
-                          "linear-gradient(180deg, rgba(246,241,234,0.7), rgba(255,255,255,0.95))",
-                      }}
-                    >
-                      <div className="min-w-0">
-                        <p
-                          className="font-black uppercase tracking-[0.18em]"
-                          style={{ color: "#5E7EA3", fontSize: "10px" }}
-                        >
-                          Sample Report
-                        </p>
-                        <h3
-                          className="mt-1 truncate font-black tracking-tight"
-                          style={{ color: colors.navy, fontSize: "20px" }}
-                        >
-                          ATS Resume Checker PDF
-                        </h3>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => setIsSampleReportOpen(false)}
-                        className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border bg-white transition duration-300 hover:-translate-y-0.5"
-                        style={{
-                          color: colors.navy,
-                          borderColor: "#D8DFE7",
-                          boxShadow: "0 12px 22px rgba(16,36,90,0.08)",
-                        }}
-                        aria-label="Close sample report"
+                    <div className="min-w-0">
+                      <p
+                        className="font-black uppercase tracking-[0.18em]"
+                        style={{ color: "#5E7EA3", fontSize: "10px" }}
                       >
-                        <X size={18} />
-                      </button>
+                        Sample Report
+                      </p>
+                      <h3
+                        className="mt-1 truncate font-black tracking-tight"
+                        style={{ color: colors.navy, fontSize: "20px" }}
+                      >
+                        ATS Resume Checker PDF
+                      </h3>
                     </div>
 
-                    <div className="flex-1 overflow-hidden bg-[#F6F1EA] p-3 sm:p-4">
-                      <iframe
-                        src="/ATS%20Resume%20Checker.pdf#toolbar=0&navpanes=0&scrollbar=1"
-                        title="Sample ATS report PDF"
-                        className="h-full w-full rounded-[22px] border bg-white shadow-[0_18px_48px_rgba(16,36,90,0.14)]"
-                        style={{ borderColor: "#D8DFE7" }}
-                      />
-                    </div>
-                  </motion.div>
+                    <button
+                      type="button"
+                      onClick={() => setIsSampleReportOpen(false)}
+                      className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border bg-white transition duration-300 hover:-translate-y-0.5"
+                      style={{
+                        color: colors.navy,
+                        borderColor: "#D8DFE7",
+                        boxShadow: "0 12px 22px rgba(16,36,90,0.08)",
+                      }}
+                      aria-label="Close sample report"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-hidden bg-[#F6F1EA] p-3 sm:p-4">
+                    <iframe
+                      src="/ATS%20Resume%20Checker.pdf#toolbar=0&navpanes=0&scrollbar=1"
+                      title="Sample ATS report PDF"
+                      className="h-full w-full rounded-[22px] border bg-white shadow-[0_18px_48px_rgba(16,36,90,0.14)]"
+                      style={{ borderColor: "#D8DFE7" }}
+                    />
+                  </div>
                 </motion.div>
-              ) : null}
-            </AnimatePresence>,
-            document.body
-          )
+              </motion.div>
+            ) : null}
+          </AnimatePresence>,
+          document.body
+        )
         : null}
     </section>
   );

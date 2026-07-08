@@ -6433,7 +6433,7 @@ function ATSReportPage() {
         >
           {/* Enhanced Sidebar Navigation Component */}
           {!isChromeHidden ? (
-          <aside className="min-w-0">
+          <aside className="hidden xl:block min-w-0">
             <div className="xl:sticky xl:top-6 space-y-4">
               <Card
                 className={`rounded-3xl border border-slate-200 bg-white p-3.5 shadow-sm transition-all duration-300 ${
