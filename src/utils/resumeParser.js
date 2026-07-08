@@ -28,15 +28,24 @@ export const extractTextFromPDF = async (file) => {
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .sort((a, b) => {
-          // Sort items top-to-bottom, left-to-right
-          const yDiff = b.transform[5] - a.transform[5];
-          if (Math.abs(yDiff) > 3) return yDiff;
-          return a.transform[4] - b.transform[4];
-        })
-        .map((item) => item.str.trim())
-        .join(' ');
+      const sortedItems = textContent.items.sort((a, b) => {
+        const yDiff = b.transform[5] - a.transform[5];
+        if (Math.abs(yDiff) > 3) return yDiff;
+        return a.transform[4] - b.transform[4];
+      });
+
+      let pageText = '';
+      let lastY = null;
+      for (const item of sortedItems) {
+        const str = item.str;
+        const y = item.transform[5];
+        if (lastY !== null && Math.abs(y - lastY) > 3) {
+          pageText += '\n' + str;
+        } else {
+          pageText += (pageText ? ' ' : '') + str;
+        }
+        lastY = y;
+      }
       fullText += pageText + '\n\n';
     }
 
