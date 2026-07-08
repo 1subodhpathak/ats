@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Bolt,
   BriefcaseBusiness,
@@ -13,12 +14,14 @@ import {
   LayoutDashboard,
   Mail,
   MapPin,
+  Menu,
   Phone,
   SearchCheck,
   Settings2,
   Sparkles,
   Upload,
   UserRound,
+  X,
 } from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
 import colorLogo from "../assets/logos/BlueLogo.png";
@@ -178,7 +181,7 @@ function ProgressRow({ label, value, detail }) {
 
 function DashboardSidebar({ activeSection, onSelectSection }) {
   return (
-    <aside className="flex w-[320px] shrink-0 flex-col border-r border-[#D7E3EC] bg-[linear-gradient(180deg,#E8F0F6_0%,#F6F1EA_68%,#FBF7F1_100%)]">
+    <aside className="hidden w-[320px] shrink-0 flex-col border-r border-[#D7E3EC] bg-[linear-gradient(180deg,#E8F0F6_0%,#F6F1EA_68%,#FBF7F1_100%)] lg:flex">
       <Link
         to="/"
         className="flex items-center gap-4 border-b border-[#D7E3EC] px-8 py-8 transition hover:bg-white/20"
@@ -223,46 +226,65 @@ function WorkspaceHeader({
   totalPoints,
   estimatedCost,
   onStartBuilder,
+  onOpenMobileNav,
 }) {
   return (
-    <div className="border-b border-[#D7E3EC] px-10 py-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-[1.95rem] font-black tracking-[-0.04em] text-[#2F4054]">
-            {title}
-          </h1>
-          {subtitle ? (
-            <p className="mt-1 text-[0.98rem] font-medium text-[#6A859B]">{subtitle}</p>
-          ) : null}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 rounded-full border border-[#CFE0EC] bg-white/88 px-5 py-3 text-[#2F4054] shadow-[0_12px_26px_rgba(21,46,84,0.04)]">
-            <Bolt className="h-4 w-4 text-[#6A859B]" />
-            <span className="text-[0.96rem] font-bold text-[#6A859B]">
-              Career Points Used
-            </span>
-            <span className="text-[1.05rem] font-black">{formatPoints(totalPoints)}</span>
-          </div>
-
-          <div className="flex items-center gap-2 rounded-full border border-[#CFE0EC] bg-white/88 px-5 py-3 text-[#2F4054] shadow-[0_12px_26px_rgba(21,46,84,0.04)]">
-            <Gauge className="h-4 w-4 text-[#6A859B]" />
-            <span className="text-[0.96rem] font-bold text-[#6A859B]">
-              Estimated Cost
-            </span>
-            <span className="text-[1.05rem] font-black">{formatUsd(estimatedCost)}</span>
-          </div>
-
+    <div className="border-b border-[#D7E3EC] px-6 py-5 sm:px-10 sm:py-6">
+      <div className="flex items-center justify-between gap-4">
+        
+        {/* Left Side: Hamburger & Title */}
+        <div className="flex items-center gap-3 min-w-0">
           <button
             type="button"
-            onClick={onStartBuilder}
-            className="inline-flex items-center gap-3 rounded-[20px] bg-[#2F4054] px-6 py-3.5 text-[1rem] font-black text-white shadow-[0_18px_30px_rgba(18,36,72,0.18)] transition hover:-translate-y-0.5 hover:bg-[#3A4D64]"
+            onClick={onOpenMobileNav}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#D7E3EC] bg-white text-[#2F4054] transition hover:bg-slate-50 focus:outline-none lg:hidden shrink-0"
+            aria-label="Open navigation menu"
           >
-            <Sparkles className="h-5 w-5" />
-            Check ATS
+            <Menu className="h-5 w-5" />
           </button>
+          <div className="min-w-0">
+            <h1 className="text-[1.5rem] sm:text-[1.95rem] font-black tracking-[-0.04em] text-[#2F4054] truncate">
+              {title}
+            </h1>
+            {subtitle ? (
+              <p className="mt-1 text-[0.98rem] font-medium text-[#6A859B] hidden lg:block">{subtitle}</p>
+            ) : null}
+          </div>
+        </div>
 
-          <div className="ml-2 flex items-center scale-110">
+        {/* Right Side: Desktop indicators/buttons & User Button */}
+        <div className="flex items-center gap-3 shrink-0">
+          
+          {/* Desktop Only indicators/buttons */}
+          <div className="hidden lg:flex lg:items-center lg:gap-3">
+            <div className="flex items-center gap-2 rounded-full border border-[#CFE0EC] bg-white/88 px-5 py-3 text-[#2F4054] shadow-[0_12px_26px_rgba(21,46,84,0.04)]">
+              <Bolt className="h-4 w-4 text-[#6A859B]" />
+              <span className="text-[0.96rem] font-bold text-[#6A859B]">
+                Career Points Used
+              </span>
+              <span className="text-[1.05rem] font-black">{formatPoints(totalPoints)}</span>
+            </div>
+
+            <div className="flex items-center gap-2 rounded-full border border-[#CFE0EC] bg-white/88 px-5 py-3 text-[#2F4054] shadow-[0_12px_26px_rgba(21,46,84,0.04)]">
+              <Gauge className="h-4 w-4 text-[#6A859B]" />
+              <span className="text-[0.96rem] font-bold text-[#6A859B]">
+                Estimated Cost
+              </span>
+              <span className="text-[1.05rem] font-black">{formatUsd(estimatedCost)}</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={onStartBuilder}
+              className="inline-flex items-center gap-3 rounded-[20px] bg-[#2F4054] px-6 py-3.5 text-[1rem] font-black text-white shadow-[0_18px_30px_rgba(18,36,72,0.18)] transition hover:-translate-y-0.5 hover:bg-[#3A4D64]"
+            >
+              <Sparkles className="h-5 w-5" />
+              Check ATS
+            </button>
+          </div>
+
+          {/* User avatar button - visible everywhere */}
+          <div className="flex items-center scale-110 shrink-0">
             <UserButton afterSignOutUrl="/" />
           </div>
         </div>
@@ -928,6 +950,7 @@ function Dashboard() {
   const [profile, setProfile] = useState(() => readStoredProfile());
   const [isUploadingResume, setIsUploadingResume] = useState(false);
   const [isUploadingJd, setIsUploadingJd] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const resumeInputRef = useRef(null);
   const jdInputRef = useRef(null);
 
@@ -1138,6 +1161,117 @@ function Dashboard() {
           <div className="pointer-events-none absolute -left-24 bottom-[-120px] h-[460px] w-[900px] rounded-full border border-[#DCE6EF] opacity-70" />
           <div className="pointer-events-none absolute left-[280px] top-[72px] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.72)_0%,rgba(255,255,255,0)_72%)]" />
 
+          {/* Mobile Menu Drawer Overlay */}
+          <AnimatePresence>
+            {isMobileNavOpen && (
+              <div className="fixed inset-0 z-[9999] flex lg:hidden">
+                {/* Backdrop overlay */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsMobileNavOpen(false)}
+                  className="fixed inset-0 bg-[#2F4054]/40 backdrop-blur-xs"
+                />
+
+                {/* Sliding Drawer Panel (Left-side full height) */}
+                <motion.div
+                  initial={{ x: "-100%" }}
+                  animate={{ x: 0 }}
+                  exit={{ x: "-100%" }}
+                  transition={{ type: "spring", damping: 25, stiffness: 220 }}
+                  className="relative flex w-full max-w-[300px] flex-col bg-white p-6 shadow-2xl border-r border-[#D7E3EC] h-full"
+                >
+                  
+                  {/* Header containing Logo & Close button */}
+                  <div className="flex items-center justify-between mb-8">
+                    <button
+                      onClick={() => {
+                        setIsMobileNavOpen(false);
+                        navigate("/");
+                      }}
+                      className="flex items-center gap-3 text-left transition-opacity hover:opacity-80"
+                    >
+                      <img
+                        src={colorLogo}
+                        alt="CareerSense Logo"
+                        className="h-10 w-10 object-contain rounded-2xl shrink-0"
+                      />
+                      <div>
+                        <h1 className="text-[22px] font-black leading-none tracking-[-0.04em]">
+                          <span className="text-[#0D2E63]">Career</span>
+                          <span className="text-[#306099]">Sense</span>
+                        </h1>
+                        <p className="mt-1 text-[9px] font-black uppercase tracking-[0.28em] text-[#6B87A0]">
+                          Workspace
+                        </p>
+                      </div>
+                    </button>
+
+                    {/* Close button */}
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileNavOpen(false)}
+                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFE0EC] bg-white text-[#2F4054] transition hover:bg-slate-50 focus:outline-none"
+                      aria-label="Close navigation menu"
+                    >
+                      <X className="h-4.5 w-4.5" />
+                    </button>
+                  </div>
+
+                  {/* Initialize Builder CTA inside mobile drawer */}
+                  <button
+                    onClick={() => {
+                      navigate("/check-ats");
+                      setIsMobileNavOpen(false);
+                    }}
+                    className="mb-5 flex w-full h-11 items-center justify-center gap-2 rounded-xl bg-[#2F4054] text-[13px] font-bold text-white transition hover:bg-[#3A4D64] shadow-sm"
+                  >
+                    <Sparkles className="h-4 w-4" />
+                    Check ATS
+                  </button>
+
+                  {/* Navigation Items list */}
+                  <nav className="space-y-1.5 flex-1" aria-label="Mobile Navigation">
+                    {SECTION_ITEMS.map(({ id, label, icon: Icon }) => {
+                      const active = activeSection === id;
+                      return (
+                        <button
+                          key={id}
+                          onClick={() => {
+                            handleSectionChange(id);
+                            setIsMobileNavOpen(false);
+                          }}
+                          className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-[14px] font-bold transition-all duration-200 ${
+                            active
+                              ? "bg-[#DCE7F1] text-[#2F4054] shadow-sm"
+                              : "text-[#66859C] hover:bg-slate-50 hover:text-[#2F4054]"
+                          }`}
+                        >
+                          <Icon className="h-[18px] w-[18px]" />
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </nav>
+
+                  {/* Footer space inside drawer (points & estimation) */}
+                  <div className="border-t border-[#D7E3EC] pt-4 mt-auto space-y-2">
+                    <div className="flex items-center justify-between rounded-xl border border-[#D7E3EC] bg-slate-50 px-3 py-2 text-[11px] font-bold text-[#6B88A0]">
+                      <span className="flex items-center gap-1.5"><Bolt className="h-3.5 w-3.5" /> Points Used</span>
+                      <span className="text-[#2F4054]">{formatPoints(totalPoints)}</span>
+                    </div>
+                    <div className="flex items-center justify-between rounded-xl border border-[#D7E3EC] bg-slate-50 px-3 py-2 text-[11px] font-bold text-[#6B88A0]">
+                      <span className="flex items-center gap-1.5"><Gauge className="h-3.5 w-3.5" /> Cost</span>
+                      <span className="text-[#2F4054]">{formatUsd(estimatedCost)}</span>
+                    </div>
+                  </div>
+
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
+
           <div className="relative z-10 flex flex-1 min-h-0 overflow-hidden">
             <DashboardSidebar
               activeSection={activeSection}
@@ -1151,6 +1285,7 @@ function Dashboard() {
                 totalPoints={totalPoints}
                 estimatedCost={estimatedCost}
                 onStartBuilder={() => navigate("/check-ats")}
+                onOpenMobileNav={() => setIsMobileNavOpen(true)}
               />
 
               <div className="px-10 py-8">

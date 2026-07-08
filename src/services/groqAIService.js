@@ -63,86 +63,185 @@ ${resumeText}
   `.trim();
 };
 
-const buildFiftyPointResumePrompt = (resumeText) => {
-  return `
-You are a highly skilled professional recruiter and ATS parsing algorithm.
-Analyze the following resume and return an exact 50-point resume quality analysis.
+export const CHECK_GROUPS = [
+  [
+    "Hard Skills & Technical Proficiency",
+    [
+      ["Mandatory Skill Match", "Checks if the absolute must-have technical skills, tools, or software are explicitly reflected."],
+      ["Secondary/Bonus Skill Match", "Evaluates the presence of nice-to-have or preferred skills."],
+      ["Skill Context Validation", "Checks whether required skills are demonstrated in experience, not just listed."],
+      ["Proficiency Level Alignment", "Matches the claimed level of expertise to the expected proficiency."],
+      ["Tech Stack Completeness", "Checks whether the complete expected stack or tool cluster is represented."],
+    ],
+  ],
+  [
+    "Soft Skills & Behavioral Competencies",
+    [
+      ["Leadership & Management", "Checks for evidence of leadership, team direction, or people management."],
+      ["Communication Indicators", "Looks for writing, presenting, stakeholder management, or negotiation proof."],
+      ["Problem-Solving & Analytics", "Looks for analytical thinking, troubleshooting, optimization, or decision support."],
+      ["Collaboration Keywords", "Checks for signals of teamwork and cross-team partnership."],
+      ["Adaptability/Pace Fit", "Assesses whether the resume shows agility in fast-moving or changing environments."],
+    ],
+  ],
+  [
+    "Job Title & Seniority Alignment",
+    [
+      ["Exact Title Match", "Checks for an exact job title match where relevant."],
+      ["Semantic Title Match", "Checks for equivalent or closely related job titles."],
+      ["Seniority Level Check", "Compares the target level to the candidate's demonstrated level."],
+      ["Career Progression", "Evaluates whether the career path logically supports the target role."],
+      ["Management Scope", "Checks for budget, team, or operational scope when the role requires it."],
+    ],
+  ],
+  [
+    "Experience & Industry Relevance",
+    [
+      ["Total Years of Experience", "Compares total experience length to the likely target expectations."],
+      ["Relevant Years of Experience", "Measures experience specifically related to the target function."],
+      ["Industry/Domain Match", "Checks for experience in the relevant industry or business domain."],
+      ["Scale of Operations", "Evaluates whether the candidate has worked at the expected scale."],
+      ["B2B vs. B2C Alignment", "Checks whether customer-base experience aligns to the likely target environment."],
+    ],
+  ],
+  [
+    "Education & Credentials",
+    [
+      ["Baseline Degree Requirement", "Checks for degree-level coverage expected by professional roles."],
+      ["Preferred Major/Specialization", "Checks for alignment between studies and target domain."],
+      ["Mandatory Certifications", "Checks for required or highly valuable certifications."],
+      ["Active Licenses", "Checks for explicit licenses or regulated-role credentials where applicable."],
+      ["Continuous Education", "Looks for ongoing learning, courses, workshops, or certifications."],
+    ],
+  ],
+  [
+    "Keyword Optimization & Context",
+    [
+      ["Primary Keyword Density", "Measures whether the most important terms appear often enough to be discoverable."],
+      ["Keyword Stuffing Detection", "Flags unnatural repetition that may look manipulative or low quality."],
+      ["Synonym Recognition", "Checks whether semantically related vocabulary supports the target role."],
+      ["Acronym Resolution", "Ensures standard acronyms and their expanded forms are covered where relevant."],
+      ["Prime Placement", "Checks whether the most valuable keywords appear early in the resume."],
+    ],
+  ],
+  [
+    "Impact & Deliverables Mapping",
+    [
+      ["Duty-to-Achievement Match", "Checks whether responsibilities are backed by clear proof of results."],
+      ["Metric Relevance", "Checks for quantifiable results aligned to the role's likely outcomes."],
+      ["Financial Responsibility", "Looks for budget, savings, revenue, or financial accountability evidence."],
+      ["Project Scope Alignment", "Checks whether project scale aligns with the likely target environment."],
+      ["Action Verb Mirroring", "Checks whether strong, role-relevant action verbs are used consistently."],
+    ],
+  ],
+  [
+    "Language, Methodology & Terminology",
+    [
+      ["Methodology Match", "Checks for relevant frameworks, methods, or delivery models."],
+      ["Regulatory/Compliance Terminology", "Looks for required compliance or standards vocabulary when applicable."],
+      ["Tone & Culture Mirroring", "Assesses whether tone feels aligned to professional ATS and recruiter expectations."],
+      ["Tool vs. Concept Match", "Checks whether tools are paired with evidence of actual applied understanding."],
+      ["Sales/Marketing Jargon", "Checks for function-specific terminology where relevant to the role."],
+    ],
+  ],
+  [
+    "Logistical & Administrative Alignment",
+    [
+      ["Location Match", "Checks for location or geography alignment signals when relevant."],
+      ["Remote Work Competency", "Looks for remote, distributed, or hybrid collaboration evidence when useful."],
+      ["Relocation Willingness", "Checks for relocation openness if location alignment is unclear."],
+      ["Work Authorization/Clearance", "Looks for explicit authorization or clearance indicators where needed."],
+      ["Language Requirements", "Checks for language proficiency or bilingual capability where relevant."],
+    ],
+  ],
+  [
+    "Cultural Fit & Core Values",
+    [
+      ["Mission Keyword Match", "Looks for values and mission language aligned with the target environment."],
+      ["Diversity & Inclusion (DEI)", "Checks for mentoring, community, ERG, or inclusion-related signals where relevant."],
+      ["Cross-Functional Experience", "Looks for collaboration across departments or partner functions."],
+      ["Customer-Centric Focus", "Checks for customer outcomes, retention, satisfaction, or advocacy signals."],
+      ["Mentorship/Training Capacity", "Checks for onboarding, coaching, enablement, or talent development evidence."],
+    ],
+  ],
+];
 
-Resume Content:
-${resumeText}
+export const EXPECTED_CHECKS = [];
+let pointer_id = 1;
+CHECK_GROUPS.forEach(([category, checks]) => {
+  checks.forEach(([title, description]) => {
+    EXPECTED_CHECKS.push({
+      pointer_id,
+      category,
+      title,
+      description
+    });
+    pointer_id++;
+  });
+});
 
-You must evaluate exactly 50 distinct analysis points across the following 5 categories (10 points per category):
-1. Language and Grammar (Grammar, Clarity, Professional tone, Passive voice, Repetition, Weak words, Action verbs, Conciseness, Readability, Spelling)
-2. ATS Formatting (File format, Section headings, Font consistency, Bullet formatting, Tables risk, Graphics risk, Header/footer risk, ATS readability, Contact readability, Parsing quality)
-3. Resume Structure (Summary quality, Experience structure, Education section, Skills section, Project section, Certification section, Achievement section, Role chronology, Section completeness, Length)
-4. Experience Quality (Impact clarity, Use of metrics, Business outcomes, Technical depth, Role relevance, Leadership signals, Ownership signals, Problem-solving clarity, Achievement strength, Responsibility clarity)
-5. Keyword and JD Alignment (General industry keywords, Technology terms, Tools, Stuffing risk, Industry terminology, General search terms, Search relevance, Title alignment, Seniority signal)
-
-For EACH of the 50 points, return a JSON object with:
-- pointer_id (1 to 50)
-- category (string)
-- title (string)
-- current_status (string: "Passed", "Needs Improvement", or "Critical Fix")
-- score (int: 0 to 100)
-- issue_found (boolean)
-- explanation (string)
-- improvement_suggestion (string)
-- affected_resume_area (string)
-- severity (string: "low", "medium", or "high")
-- recommended_rewrite (string, optional)
-
-Ensure the output is valid JSON strictly in the following format:
-{
-  "overall_score": 75,
-  "analysis_points": [
-     // Exactly 50 items here
-  ]
-}
-Do not write anything other than the JSON object.
-  `.trim();
+const buildFiftyPointChecklistString = () => {
+  return EXPECTED_CHECKS.map(item => `${item.pointer_id}. ${item.category} -> ${item.title}: ${item.description}`).join("\n");
 };
 
-const buildFiftyPointJdPrompt = (resumeText, jdText) => {
+const buildFiftyPointPrompt = (resumeText, jdText = null) => {
+  const modeGuidance = jdText
+    ? "Use the job description to judge alignment, gaps, and suitability against the exact role."
+    : "No job description is provided. Infer the most likely target role from the resume and judge general ATS readiness against professional-market expectations.";
+  const checklist = buildFiftyPointChecklistString();
+  const jdBlock = jdText ? `\nJob Description:\n${jdText}\n` : "\nJob Description:\nNot provided.\n";
+
   return `
-You are a top executive recruiter. Compare the following resume against the Job Description and return a premium 50-point JD Alignment Analysis.
+You are an expert ATS auditor and executive recruiter.
+Analyze the following resume and produce an exact 50-point ATS report.
+
+${modeGuidance}
 
 Resume:
 ${resumeText}
+${jdBlock}
 
-Job Description:
-${jdText}
+You MUST evaluate the following exact 50 checks in the exact order shown:
+${checklist}
 
-Analyze exactly 50 distinct pointers showing alignment, keyword gaps, missing skills, formatting issues, and JD suitability.
-Evaluate exactly 50 distinct analysis points across the following 5 categories (10 points per category):
-1. Required Skills Match
-2. Preferred Skills Match
-3. Experience Alignment
-4. Seniority & Title Match
-5. Keyword Coverage
+For each of the 50 checks return:
+- pointer_id
+- category
+- title
+- current_status ("Passed", "Needs Improvement", or "Critical Fix")
+- score (0-100)
+- issue_found (boolean)
+- explanation
+- improvement_suggestion
+- affected_resume_area
+- severity ("low", "medium", or "high")
+- recommended_rewrite (optional)
 
-Return a JSON object in this exact format:
+Also return:
+- overall_score
+- jd_match_score (only when a job description is provided; otherwise null)
+- summary
+- quick_scan_sections: an array of exactly 4 sections for a top-of-report executive summary with:
+  - "High-Priority Updates (ATS Blockers)"
+  - "Missing Elements"
+  - "Content Adjustments"
+  - "What You Are Doing Right (Strengths)"
+  Each section should contain 2 to 4 concise bullets based on the actual resume. Mention specific resume issues where possible, such as table usage, long length, weak verbs, missing LinkedIn, summary issues, strong metrics, reverse chronology, or date consistency when truly applicable.
+
+Return valid JSON only in this exact shape:
 {
-  "jd_match_score": 80,
-  "overall_score": 75,
-  "analysis_points": [
+  "overall_score": 0,
+  "jd_match_score": null,
+  "summary": "string",
+  "quick_scan_sections": [
     {
-      "pointer_id": 1,
-      "category": "Required Skills Match",
-      "title": "Missing core technology skill",
-      "current_status": "Critical Fix",
-      "score": 45,
-      "issue_found": true,
-      "explanation": "The JD highly demands React expertise, but your resume only shows basic vanilla JS.",
-      "improvement_suggestion": "Detail projects or libraries you've worked on specifically using React.",
-      "affected_resume_area": "Skills and Experience sections",
-      "severity": "high",
-      "recommended_rewrite": "Built robust, responsive web portals utilizing React, Redux, and Tailwind CSS."
+      "title": "High-Priority Updates (ATS Blockers)",
+      "items": ["string"]
     }
-    // Exactly 50 items here
-  ]
+  ],
+  "analysis_points": [{}]
 }
-Do not write anything other than the JSON object.
-  `.trim();
+`.trim();
 };
 
 const buildLineAnalysisPrompt = (lineText, targetRole) => {
@@ -334,50 +433,190 @@ const runLocalScoreHeuristics = (resumeText) => {
   };
 };
 
-const runLocalFiftyPointHeuristics = (resumeText, isModeB, jdText) => {
-  const categories = isModeB
-    ? [
-        "Required Skills Match",
-        "Preferred Skills Match",
-        "Experience Alignment",
-        "Seniority & Title Match",
-        "Keyword Coverage"
-      ]
-    : [
-        "Language and Grammar",
-        "ATS Formatting",
-        "Resume Structure",
-        "Experience Quality",
-        "Keyword and JD Alignment"
-      ];
+const clampScore = (val) => {
+  const numeric = Math.round(Number(val) || 0);
+  return Math.max(0, Math.min(100, numeric));
+};
 
-  const pointers = [];
-  let pointerIdx = 1;
+const statusFromScore = (score) => {
+  if (score >= 80) return "Passed";
+  if (score >= 60) return "Needs Improvement";
+  return "Critical Fix";
+};
 
-  for (const cat of categories) {
-    for (let i = 0; i < 10; i++) {
-      const passed = i % 3 !== 0;
-      pointers.push({
-        pointer_id: pointerIdx,
-        category: cat,
-        title: `Checklist audit: ${cat} checkpoint #${i + 1}`,
-        current_status: passed ? "Passed" : "Needs Improvement",
-        score: passed ? 90 : 60,
-        issue_found: !passed,
-        explanation: `Heuristic evaluation of point #${i + 1} inside category ${cat}.`,
-        improvement_suggestion: `Add quantitative evidence, use active phrasing, or include missing keywords in ${cat}.`,
-        affected_resume_area: "Experience / Skills bullet listings",
-        severity: passed ? "low" : "medium",
-        recommended_rewrite: "Refined bullet point demonstrating outcomes and tools."
-      });
-      pointerIdx++;
+const severityFromStatus = (status) => {
+  if (status === "Passed") return "low";
+  if (status === "Needs Improvement") return "medium";
+  return "high";
+};
+
+const normalizeQuickScanSections = (sections, points) => {
+  if (sections && Array.isArray(sections) && sections.length === 4) {
+    return sections;
+  }
+  const actionable = points.filter(p => p.current_status !== "Passed");
+  const blockers = actionable.filter(p => p.current_status === "Critical Fix");
+  const strengths = points.filter(p => p.current_status === "Passed");
+
+  const formatItem = (point, prefix = null) => {
+    const message = point.improvement_suggestion || point.explanation || point.title || "";
+    const title = point.title || "Resume update";
+    const lead = prefix || title;
+    return `${lead}: ${message}`.trim();
+  };
+
+  return [
+    {
+      title: "High-Priority Updates (ATS Blockers)",
+      items: blockers.slice(0, 4).map(p => formatItem(p))
+    },
+    {
+      title: "Missing Elements",
+      items: actionable
+        .filter(p => ["Education & Credentials", "Keyword Optimization & Context", "Logistical & Administrative Alignment"].includes(p.category))
+        .slice(0, 4)
+        .map(p => formatItem(p))
+    },
+    {
+      title: "Content Adjustments",
+      items: actionable
+        .filter(p => ["Impact & Deliverables Mapping", "Language, Methodology & Terminology", "Soft Skills & Behavioral Competencies"].includes(p.category))
+        .slice(0, 4)
+        .map(p => formatItem(p))
+    },
+    {
+      title: "What You Are Doing Right (Strengths)",
+      items: strengths.slice(0, 4).map(p => formatItem(p, p.title))
     }
+  ];
+};
+
+const buildCategoryScoresFromPoints = (points) => {
+  const grouped = {};
+  points.forEach(point => {
+    const cat = point.category;
+    if (!grouped[cat]) {
+      grouped[cat] = [];
+    }
+    grouped[cat].push(point);
+  });
+
+  const results = [];
+  CHECK_GROUPS.forEach(([category]) => {
+    const catPoints = grouped[category] || [];
+    const passed = catPoints.filter(p => p.current_status === "Passed").length;
+    const needs = catPoints.filter(p => p.current_status === "Needs Improvement").length;
+    const critical = catPoints.filter(p => p.current_status === "Critical Fix").length;
+    const avgScore = catPoints.length ? Math.round(catPoints.reduce((sum, p) => sum + p.score, 0) / catPoints.length) : 0;
+
+    results.push({
+      category,
+      score: avgScore,
+      passed_points: passed,
+      needs_improvement_points: needs,
+      critical_fix_points: critical
+    });
+  });
+  return results;
+};
+
+const normalizeAnalysis = (rawAnalysis, jdText) => {
+  const rawPoints = rawAnalysis.analysis_points || [];
+  const normalizedPoints = [];
+
+  const normalizeKey = (val) => String(val || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+
+  const pointsByTitle = {};
+  rawPoints.forEach(point => {
+    if (point && point.title) {
+      pointsByTitle[normalizeKey(point.title)] = point;
+    }
+  });
+
+  EXPECTED_CHECKS.forEach((expected, index) => {
+    let source = pointsByTitle[normalizeKey(expected.title)];
+    if (!source && index < rawPoints.length) {
+      source = rawPoints[index];
+    }
+
+    const score = clampScore((source || {}).score ?? (jdText ? 72 : 76));
+    const status = (source || {}).current_status || statusFromScore(score);
+    let issueFound = (source || {}).issue_found;
+    if (issueFound === undefined) {
+      issueFound = status !== "Passed";
+    }
+
+    normalizedPoints.push({
+      pointer_id: expected.pointer_id,
+      category: expected.category,
+      title: expected.title,
+      current_status: status,
+      score: score,
+      issue_found: !!issueFound,
+      explanation: (source || {}).explanation || `Assessment generated for ${expected.title} based on the available resume evidence.`,
+      improvement_suggestion: (source || {}).improvement_suggestion || `Strengthen the resume evidence for ${expected.title} with clearer, more specific proof.`,
+      affected_resume_area: (source || {}).affected_resume_area || "Resume content",
+      severity: (source || {}).severity || severityFromStatus(status),
+      recommended_rewrite: (source || {}).recommended_rewrite || null
+    });
+  });
+
+  const rawOverall = rawAnalysis.overall_score;
+  const overallScore = clampScore(
+    typeof rawOverall === "number" ? rawOverall : Math.round(normalizedPoints.reduce((sum, p) => sum + p.score, 0) / normalizedPoints.length)
+  );
+
+  let jdMatchScore = null;
+  if (jdText) {
+    const rawJdMatch = rawAnalysis.jd_match_score;
+    jdMatchScore = clampScore(
+      typeof rawJdMatch === "number" ? rawJdMatch : Math.round(normalizedPoints.slice(0, 25).reduce((sum, p) => sum + p.score, 0) / 25)
+    );
   }
 
+  const summary = rawAnalysis.summary || (jdText
+    ? `This 50-point ATS report scored the resume at ${overallScore}/100 after checking skills, experience alignment, keyword coverage, logistics, and role fit against the supplied job description.`
+    : `This 50-point ATS report scored the resume at ${overallScore}/100 after checking structure, wording, impact, keyword quality, and recruiter-readiness without a job description.`);
+
+  const quickScanSections = normalizeQuickScanSections(rawAnalysis.quick_scan_sections, normalizedPoints);
+
   return {
-    overall_score: isModeB ? 72 : 78,
+    overall_score: overallScore,
+    jd_match_score: jdMatchScore,
+    summary,
+    quick_scan_sections: quickScanSections,
+    category_scores: buildCategoryScoresFromPoints(normalizedPoints),
+    analysis_points: normalizedPoints
+  };
+};
+
+const runLocalFiftyPointHeuristics = (resumeText, isModeB, jdText) => {
+  const pointers = [];
+  EXPECTED_CHECKS.forEach((expected, index) => {
+    const passed = index % 3 !== 0;
+    pointers.push({
+      pointer_id: expected.pointer_id,
+      category: expected.category,
+      title: expected.title,
+      current_status: passed ? "Passed" : "Needs Improvement",
+      score: passed ? 90 : 60,
+      issue_found: !passed,
+      explanation: `Heuristic evaluation of check ${expected.title} inside category ${expected.category}.`,
+      improvement_suggestion: `Add quantitative evidence, use active phrasing, or include missing keywords for ${expected.title}.`,
+      affected_resume_area: "Experience / Skills bullet listings",
+      severity: passed ? "low" : "medium",
+      recommended_rewrite: `Refined bullet point demonstrating outcomes and tools for ${expected.title}.`
+    });
+  });
+
+  const overallScore = isModeB ? 72 : 78;
+  return {
+    overall_score: overallScore,
+    jd_match_score: isModeB ? 70 : null,
     summary: "Premium local heuristics checklist verified 50 key ATS compatibility items.",
-    analysis_points: pointers
+    analysis_points: pointers,
+    quick_scan_sections: normalizeQuickScanSections([], pointers),
+    category_scores: buildCategoryScoresFromPoints(pointers)
   };
 };
 
@@ -428,11 +667,9 @@ export const evaluateFiftyPointAnalysis = async (resumeText, jdText = null) => {
   }
 
   try {
-    const prompt = isModeB
-      ? buildFiftyPointJdPrompt(resumeText, jdText)
-      : buildFiftyPointResumePrompt(resumeText);
+    const prompt = buildFiftyPointPrompt(resumeText, jdText);
     const data = await requestCompletions(prompt, 0.15, 8192);
-    return data;
+    return normalizeAnalysis(data, jdText);
   } catch (error) {
     console.error("Groq 50-point analysis failed, fallback to local heuristics:", error);
     return runLocalFiftyPointHeuristics(resumeText, isModeB, jdText);

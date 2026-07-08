@@ -33,7 +33,10 @@ export const uploadResume = async (formData) => {
 
   // 4. Save to Express/MongoDB backend
   const saveResponse = await apiClient.post("/resumes", structuredResume);
-  return { data: saveResponse.data };
+  const savedResume = Array.isArray(saveResponse.data)
+    ? saveResponse.data.find((r) => r.resume_id === resumeId)
+    : saveResponse.data;
+  return { data: savedResume };
 };
 
 export const getResume = (resumeId) => apiClient.get(`/resumes/${resumeId}`);
@@ -116,4 +119,9 @@ export const getResumePdfPreviewUrl = (resumeId) => {
 export const getResumeOriginalPreviewUrl = (resumeId) => {
   const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/careersense/ats";
   return `${baseUrl}/resumes/${resumeId}/preview/original`;
+};
+
+export const getResumeFileBlob = async (resumeId) => {
+  const response = await apiClient.get(`/resumes/${resumeId}/file`, { responseType: 'blob' });
+  return response.data;
 };

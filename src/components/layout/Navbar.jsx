@@ -12,7 +12,7 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, SignInButton, UserButton, useAuth } from "@clerk/clerk-react";
 import useResumeStore from "../../store/useResumeStore";
 import colorLogo from "../../assets/logos/BlueLogo.png";
 import apiClient from "../../services/apiClient";
@@ -20,6 +20,7 @@ import apiClient from "../../services/apiClient";
 function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { userId } = useAuth();
   const isLandingPage = location.pathname === "/";
   const [isMobileNavOpen, setIsMobileNavOpen] = React.useState(false);
 
@@ -69,14 +70,14 @@ function Navbar() {
       }
     }
 
-    // Only fetch if on internal/auth routes, not landing page
-    if (!isLandingPage) {
+    // Only fetch if authenticated
+    if (userId) {
       fetchUsage();
     }
     return () => {
       active = false;
     };
-  }, [currentResume, isLandingPage]);
+  }, [currentResume, userId]);
 
   const workflowSteps = isResumeJdFlow
     ? [
@@ -352,15 +353,18 @@ function Navbar() {
                   </SignInButton>
                 </SignedOut>
                 <SignedIn>
-                  <Link to="/check-ats" className="shrink-0">
-                    <button
-                      type="button"
-                      className="flex items-center gap-1 rounded-lg bg-royalblue px-4 py-2 text-xs font-bold text-swanwing shadow-sm transition hover:bg-sapphire"
-                    >
-                      Check ATS
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    </button>
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <InternalUsagePill />
+                    <Link to="/check-ats" className="shrink-0">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 rounded-lg bg-royalblue px-4 py-2 text-xs font-bold text-swanwing shadow-sm transition hover:bg-sapphire"
+                      >
+                        Check ATS
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </Link>
+                  </div>
                 </SignedIn>
               </div>
 
@@ -395,7 +399,7 @@ function Navbar() {
 
         {/* Mobile Dropdown Menu */}
         {isMobileNavOpen && (
-          <div className="w-full border-t border-[#D6E1E9]/40 mt-3 pt-3 md:hidden">
+          <div className={`w-full border-t border-[#D6E1E9]/40 mt-3 pt-3 ${isLandingPage ? "md:hidden" : "lg:hidden"}`}>
             {isLandingPage ? (
               <nav className="flex flex-col gap-2.5">
                 <button
@@ -448,6 +452,19 @@ function Navbar() {
                     </SignInButton>
                   </SignedOut>
                   <SignedIn>
+                    {/* Points & Bill for Landing Page logged in mobile view */}
+                    <div className="flex flex-col gap-2 rounded-xl bg-white/70 p-2.5 border border-[#CFE0EC]/40 mb-2 font-bold">
+                      <div className="flex items-center justify-between text-xs text-[#6B87A0]">
+                        <span>Points Available</span>
+                        <span className="text-sm font-black text-[#2F4054]">{new Intl.NumberFormat().format(totalPoints)}</span>
+                      </div>
+                      <div className="h-px bg-slate-100" />
+                      <div className="flex items-center justify-between text-xs text-[#6B87A0]">
+                        <span>Estimated Bill</span>
+                        <span className="text-sm font-black text-[#2F4054]">{`$${estimatedCost.toFixed(4)}`}</span>
+                      </div>
+                    </div>
+
                     <Link to="/check-ats" onClick={() => setIsMobileNavOpen(false)}>
                       <button
                         type="button"

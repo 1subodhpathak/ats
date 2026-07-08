@@ -4866,7 +4866,7 @@ function ATSReportPage() {
   const [saveStatus, setSaveStatus] = useState("idle");
   const [saveMessage, setSaveMessage] = useState("");
   const [highlightedLineId, setHighlightedLineId] = useState("");
-  const [previewMode, setPreviewMode] = useState("ats");
+  const [previewMode, setPreviewMode] = useState("original");
   const [isResumeViewerOpen, setIsResumeViewerOpen] = useState(false);
   const [isSidebarMinimized, setIsSidebarMinimized] = useState(false);
   const [originalSearchInput, setOriginalSearchInput] = useState("");
@@ -5315,6 +5315,7 @@ function ATSReportPage() {
     const matrix = report.jd_match_matrix || [];
     const workExperience = report.extracted_resume_data?.work_experience || [];
     const tools = report.extracted_resume_data?.skills?.tools || [];
+    const isJd = report.analysis_type === "resume_jd" || !!report.job_description_excerpt || report.jd_match_score !== null;
 
     const biRows = matrix.filter((item) => {
       const haystack = `${item.requirement} ${item.jd_evidence} ${item.resume_evidence}`.toLowerCase();
@@ -5323,17 +5324,29 @@ function ATSReportPage() {
       );
     });
 
-    const biScore =
-      scorecardRows.find((row) => row.label === "BI dashboards and reporting")?.score ??
-      averageScore(
-        biRows.map((item) =>
-          normalizeAuditStatus(item.status) === "strong"
-            ? 86
-            : normalizeAuditStatus(item.status) === "partial"
-              ? 68
-              : 45
-        )
-      );
+    const biKeywords = ["bi", "dashboard", "reporting", "tableau", "power bi", "qlik", "visualization", "kpi", "report"];
+
+    let biScore = null;
+    if (isJd) {
+      biScore =
+        scorecardRows.find((row) => row.label === "BI dashboards and reporting")?.score ??
+        averageScore(
+          biRows.map((item) =>
+            normalizeAuditStatus(item.status) === "strong"
+              ? 86
+              : normalizeAuditStatus(item.status) === "partial"
+                ? 68
+                : 45
+          )
+        );
+    } else {
+      const matchedTools = tools.filter(t => biKeywords.some(kw => String(t).toLowerCase().includes(kw)));
+      const matchedBulletsCount = workExperience.reduce((count, job) => {
+        return count + (job.bullets || []).filter(b => biKeywords.some(kw => String(b).toLowerCase().includes(kw))).length;
+      }, 0);
+      const totalHits = matchedTools.length + matchedBulletsCount;
+      biScore = totalHits > 0 ? Math.min(100, 50 + totalHits * 12) : 40;
+    }
 
     const evidenceFound = [];
     biRows.forEach((item) => {
@@ -5353,9 +5366,21 @@ function ATSReportPage() {
       evidenceFound.push(`Tools already visible in the resume include ${tools.slice(0, 6).join(", ")}.`);
     }
 
-    const improvements = Array.from(new Set(biRows.map((item) => item.recommendation).filter(Boolean))).slice(0, 5);
+    let improvements = Array.from(new Set(biRows.map((item) => item.recommendation).filter(Boolean))).slice(0, 5);
+    let topEvidence = Array.from(new Set(evidenceFound.map((item) => String(item).trim()).filter(Boolean))).slice(0, 5);
 
-    const topEvidence = Array.from(new Set(evidenceFound.map((item) => String(item).trim()).filter(Boolean))).slice(0, 5);
+    if (!isJd) {
+      if (!topEvidence.length) {
+        topEvidence = ["No BI, dashboarding, or corporate reporting evidence detected in the resume."];
+      }
+      if (!improvements.length) {
+        improvements = [
+          "Add BI dashboards and corporate reporting tools (e.g., Tableau, Power BI) to your skills list.",
+          "Incorporate KPI dashboarding experience and outcomes in your work experience bullets."
+        ];
+      }
+    }
+
     const positioning = report.rewrites?.find((item) =>
       (item.section || "").toLowerCase().includes("summary")
     )?.suggested_rewrite || null;
@@ -5367,7 +5392,9 @@ function ATSReportPage() {
     return {
       score: biScore,
       performance: biScore >= 80 ? "Strong performance" : biScore >= 60 ? "Usable performance" : "Needs stronger proof",
-      summary: `${topEvidence.length} evidence point${topEvidence.length === 1 ? "" : "s"} in the resume align with BI, dashboarding, reporting, or reporting-tool requirements from the JD.`,
+      summary: isJd 
+        ? `${topEvidence.length} evidence point${topEvidence.length === 1 ? "" : "s"} in the resume align with BI, dashboarding, reporting, or reporting-tool requirements from the JD.`
+        : `${topEvidence.length} BI-related evidence point${topEvidence.length === 1 ? "" : "s"} detected in the resume.`,
       evidence: topEvidence,
       improvements,
       positioning,
@@ -6171,6 +6198,25 @@ function ATSReportPage() {
     );
   }, [highlightedLineId, originalSearchTerm, report]);
 
+  const filteredSidebarItems = useMemo(() => {
+    if (!report) return REPORT_SIDEBAR_ITEMS;
+    const isJd = report.analysis_type === "resume_jd" || !!report.job_description_excerpt || report.jd_match_score !== null;
+    
+    if (isJd) {
+      return REPORT_SIDEBAR_ITEMS;
+    } else {
+      const excludedIds = [
+        "report-jd-matrix",
+        "report-jd-matrix-continuation",
+        "report-keywords",
+        "report-aiml",
+        "report-governance",
+        "report-leadership"
+      ];
+      return REPORT_SIDEBAR_ITEMS.filter(item => !excludedIds.includes(item.id));
+    }
+  }, [report]);
+
   const handleSave = async () => {
     if (!report?.analysis_id || report?.saved_report_id) {
       return;
@@ -6387,7 +6433,7 @@ function ATSReportPage() {
         >
           {/* Enhanced Sidebar Navigation Component */}
           {!isChromeHidden ? (
-          <aside className="min-w-0">
+          <aside className="hidden xl:block min-w-0">
             <div className="xl:sticky xl:top-6 space-y-4">
               <Card
                 className={`rounded-3xl border border-slate-200 bg-white p-3.5 shadow-sm transition-all duration-300 ${
@@ -6417,7 +6463,7 @@ function ATSReportPage() {
                 </div>
 
                 <div className="space-y-1 max-h-[64vh] overflow-y-auto pr-1">
-                  {REPORT_SIDEBAR_ITEMS.map((item, index) => (
+                  {filteredSidebarItems.map((item, index) => (
                     <a
                       key={item.id}
                       href={`#${item.id}`}
@@ -7241,15 +7287,6 @@ function ATSReportPage() {
                                 <span className="bg-white border px-1.5 py-0.5 rounded shadow-2xs text-slate-600">Threat: {point.severity}</span>
                               </div>
                             </div>
-                            {primaryLine && (
-                              <button
-                                type="button"
-                                onClick={() => focusResumeArea(primaryLine)}
-                                className="rounded-lg bg-white border border-slate-200 px-2.5 py-1.5 text-[10px] font-black text-[#0B2146] hover:bg-slate-100 shadow-sm transition shrink-0"
-                              >
-                                View Code Mapping
-                              </button>
-                            )}
                           </div>
 
                           <p className="text-xs leading-relaxed text-slate-600 mb-2 font-medium">{point.explanation}</p>
@@ -7463,13 +7500,13 @@ function ATSReportPage() {
                 >
                   Close Preview
                 </Button>
-                <Button
-                  variant="outline"
-                  className="rounded-xl bg-[#0b1042] px-4 text-xs font-black text-white"
+                <button
+                  type="button"
+                  className="rounded-xl bg-[#0b1042] px-4 py-2.5 text-xs font-black text-white hover:bg-[#070b2e] transition shadow-md"
                   onClick={handleDownloadPdf}
                 >
                   Download PDF
-                </Button>
+                </button>
               </div>
             </div>
 
@@ -7503,13 +7540,13 @@ function ATSReportPage() {
               </div>
               <div className="flex flex-wrap items-center gap-3 shrink-0">
                 <div className="flex rounded-xl bg-slate-200/70 p-1 border border-slate-300/40 text-xs font-bold">
-                  <button
+                  {/* <button
                     type="button"
                     onClick={() => setPreviewMode("ats")}
                     className={`rounded-lg px-3 py-1.5 transition ${previewMode === "ats" ? "bg-white text-[#0B2146] shadow-2xs" : "text-slate-600 hover:text-slate-950"}`}
                   >
                     ATS Extracted Matrix Map
-                  </button>
+                  </button> */}
                   <button
                     type="button"
                     onClick={() => setPreviewMode("original")}
@@ -7556,18 +7593,18 @@ function ATSReportPage() {
             ) : null}
 
             <div className="min-h-0 flex-1 overflow-auto bg-slate-100 p-4 flex justify-center">
-              {previewMode === "ats" ? (
+              {/* {previewMode === "ats" ? (
                 <div className="w-full max-w-4xl bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                  <Ats resume={resume} />
+                  <Ats resume={resume} report={report} />
                 </div>
-              ) : (
+              ) : ( */}
                 <iframe
                   key={originalPreviewUrl}
                   src={originalPreviewUrl}
                   title="Original uploaded file asset panel frame window viewport context"
                   className="w-full max-w-4xl h-full min-h-[66vh] rounded-xl bg-white shadow-md border"
                 />
-              )}
+              {/* )} */}
             </div>
           </div>
         </div>

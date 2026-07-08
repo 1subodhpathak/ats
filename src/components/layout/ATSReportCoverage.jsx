@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   BookOpenCheck,
@@ -179,56 +180,61 @@ function ATSReportCoverage() {
         </div>
       </section>
 
-      <AnimatePresence>
-        {isSampleReportOpen ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4"
-          >
-            <motion.div
-              initial={{ opacity: 0, y: 12, scale: 0.985 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.99 }}
-              transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-              className="flex h-[92vh] w-full max-w-[1180px] flex-col overflow-hidden rounded-[28px] border border-[#D8DFE7] bg-white shadow-[0_28px_80px_rgba(16,36,90,0.22)]"
-            >
-              <div className="flex items-center justify-between gap-4 border-b border-[#E4DDD4] bg-[linear-gradient(180deg,rgba(246,241,234,0.7),rgba(255,255,255,0.95))] px-5 py-4">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#5E7EA3]">
-                    Sample Report
-                  </p>
-                  <h3 className="mt-1 truncate text-[20px] font-black tracking-tight text-[#10245A]">
-                    ATS Resume Checker PDF
-                  </h3>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsSampleReportOpen(false)}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D8DFE7] bg-white text-[#10245A] transition duration-300 hover:-translate-y-0.5"
-                  style={{
-                    boxShadow: "0 12px 22px rgba(16,36,90,0.08)",
-                  }}
-                  aria-label="Close sample report"
+      {typeof document !== "undefined"
+        ? createPortal(
+            <AnimatePresence>
+              {isSampleReportOpen ? (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                  className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/55 p-4"
                 >
-                  <X size={18} />
-                </button>
-              </div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 12, scale: 0.985 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.99 }}
+                    transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex h-[92vh] w-full max-w-[1180px] flex-col overflow-hidden rounded-[28px] border border-[#D8DFE7] bg-white shadow-[0_28px_80px_rgba(16,36,90,0.22)]"
+                  >
+                    <div className="flex items-center justify-between gap-4 border-b border-[#E4DDD4] bg-[linear-gradient(180deg,rgba(246,241,234,0.7),rgba(255,255,255,0.95))] px-5 py-4">
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#5E7EA3]">
+                          Sample Report
+                        </p>
+                        <h3 className="mt-1 truncate text-[20px] font-black tracking-tight text-[#10245A]">
+                          ATS Resume Checker PDF
+                        </h3>
+                      </div>
 
-              <div className="flex-1 overflow-hidden bg-[#F6F1EA] p-3 sm:p-4">
-                <iframe
-                  src="/ATS%20Resume%20Checker.pdf#toolbar=0&navpanes=0&scrollbar=1"
-                  title="Sample ATS report PDF"
-                  className="h-full w-full rounded-[22px] border border-[#D8DFE7] bg-white shadow-[0_18px_48px_rgba(16,36,90,0.14)]"
-                />
-              </div>
-            </motion.div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+                      <button
+                        type="button"
+                        onClick={() => setIsSampleReportOpen(false)}
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#D8DFE7] bg-white text-[#10245A] transition duration-300 hover:-translate-y-0.5"
+                        style={{
+                          boxShadow: "0 12px 22px rgba(16,36,90,0.08)",
+                        }}
+                        aria-label="Close sample report"
+                      >
+                        <X size={18} />
+                      </button>
+                    </div>
+
+                    <div className="flex-1 overflow-hidden bg-[#F6F1EA] p-3 sm:p-4">
+                      <iframe
+                        src="/ATS%20Resume%20Checker.pdf#toolbar=0&navpanes=0&scrollbar=1"
+                        title="Sample ATS report PDF"
+                        className="h-full w-full rounded-[22px] border border-[#D8DFE7] bg-white shadow-[0_18px_48px_rgba(16,36,90,0.14)]"
+                      />
+                    </div>
+                  </motion.div>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>,
+            document.body
+          )
+        : null}
     </>
   );
 }

@@ -19,7 +19,8 @@ const Footer = () => {
   const [isCoffeeOpen, setIsCoffeeOpen] = useState(false);
 
   const GOOGLE_FORM_URL =
-    "https://docs.google.com/forms/d/e/1FAIpQLSc3Mf6poLOwWeCvEJRmElZXI4iCPC8KzmVmiaSw5v7NZaQHSw/viewform?embedded=true";
+    // "https://docs.google.com/forms/d/e/1FAIpQLSc3Mf6poLOwWeCvEJRmElZXI4iCPC8KzmVmiaSw5v7NZaQHSw/viewform?embedded=true";
+    "https://docs.google.com/forms/d/e/1FAIpQLSfz55NWi27Do0xWsPxNVEMU6CTqW8diTrwk3oxR62ufMVsPxg/viewform";
 
   return (
     <footer className="relative w-full border-t border-[#E8E1D5] bg-[#F4EFE6] pt-16 pb-8 font-sans text-slate-600">
@@ -164,7 +165,7 @@ const Footer = () => {
               </li>
               <li>
                 <a
-                  href="mailto:support@careersense.ai"
+                  href="mailto:support@careersenseai.com"
                   className="group flex items-center gap-3 text-sm font-medium text-slate-500 transition-colors hover:text-[#0B2146]"
                 >
                   <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#CBD5E1] transition-colors group-hover:bg-[#0B2146]" />
@@ -176,8 +177,8 @@ const Footer = () => {
 
               <li className="flex items-center gap-3 text-sm font-medium text-slate-500">
                 <Mail size={16} className="shrink-0 text-[#94A3B8]" />
-                <a href="mailto:support@careersense.ai" className="hover:text-[#0B2146]">
-                  support@careersense.ai
+                <a href="mailto:support@careersenseai.com" className="hover:text-[#0B2146]">
+                  support@careersenseai.com
                 </a>
               </li>
               <li className="flex flex-col gap-2.5 text-sm font-medium text-slate-500">
