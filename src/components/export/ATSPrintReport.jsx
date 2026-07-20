@@ -1,3 +1,5 @@
+import { cleanCandidateName } from "../../utils/resumeParser";
+
 // import { formatReportDate, normalizeScore } from "./ReportTemplate";
 
 // function cx(...classes) {
@@ -1121,8 +1123,15 @@ function ATSPrintReport({
   dashboardOverallScore,
 }) {
   const executive = report?.executive_summary || {};
-  
-  const candidateName = passedCandidateName || report?.candidate_name || resume?.candidate_name || report?.resume_file_name || "Applicant Profile";
+
+
+
+  const candidateName = passedCandidateName
+    ? cleanCandidateName(passedCandidateName)
+    : cleanCandidateName(report?.candidate_name) ||
+      cleanCandidateName(resume?.candidate_name) ||
+      cleanCandidateName(report?.resume_file_name) ||
+      "Applicant Profile";
   const targetRole = report?.target_role || report?.metadata?.target_role || report?.job_description?.title || report?.extracted_jd_data?.jd_profile?.target_role || resume?.target_role || "Business Intelligence Analytics Lead";
   const targetCompany = report?.target_company || report?.metadata?.target_company || report?.job_description?.company || report?.extracted_jd_data?.jd_profile?.company || "Government e Marketplace (GeM)";
   const reportDate = formatReportDate(report?.created_at);

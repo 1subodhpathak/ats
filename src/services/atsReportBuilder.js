@@ -1,3 +1,5 @@
+import { extractCandidateName } from "../utils/resumeParser";
+
 // Constants from original Python backend
 export const CHECK_GROUPS = [
   [
@@ -1161,11 +1163,14 @@ export const buildAdvancedReport = (analysisReport, resumeText = "", fileName = 
 
   const emailMatch = safeText.match(/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i);
   const phoneMatch = safeText.match(/(\+?\d[\d\s().-]{7,}\d)/);
-  const linkedinMatch = safeText.match(/https?:\/\/(?:www\.)?linkedin\.com\/[^\s|]+/i);
-  const urlMatch = safeText.match(/https?:\/\/[^\s|]+/i);
+  const linkedinMatch = safeText.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/[^\s|]+/i);
+  const urlMatch = safeText.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/[^\s|]+/i) || safeText.match(/https?:\/\/[^\s|]+/i);
   const locationMatch = safeText.match(/\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*,\s*[A-Z]{2,})\b/);
 
   let verifiedLinkedin = linkedinMatch ? linkedinMatch[0] : null;
+  if (verifiedLinkedin && !/^https?:\/\//i.test(verifiedLinkedin)) {
+    verifiedLinkedin = "https://" + verifiedLinkedin;
+  }
   if (!verifiedLinkedin) {
     for (const line of lines.slice(0, 8)) {
       if (line.includes(":")) {
@@ -1173,7 +1178,7 @@ export const buildAdvancedReport = (analysisReport, resumeText = "", fileName = 
         const right = parts[parts.length - 1].trim();
         if (/^[a-zA-Z0-9\-_]+$/.test(right) && !/^\d+$/.test(right) && right.length >= 3 && right.length <= 30) {
           if (!right.includes("@")) {
-            verifiedLinkedin = "linkedin.com/in/" + right;
+            verifiedLinkedin = "https://linkedin.com/in/" + right;
             break;
           }
         }
@@ -1557,12 +1562,12 @@ export const buildAdvancedReport = (analysisReport, resumeText = "", fileName = 
   })();
 
   const profile = {
-    name: safeText.match(/^([A-Z][a-z]+\s+[A-Z][a-z]+)/)?.[1] || fileName.split(".")[0].replace(/_/g, " "),
+    name: extractCandidateName(safeText, fileName),
     email: emailMatch ? emailMatch[0] : null,
     phone: phoneMatch ? phoneMatch[0] : null,
     location: locationMatch ? locationMatch[0] : "Location verified",
     linkedin: verifiedLinkedin,
-    portfolio: urlMatch ? urlMatch[0] : null,
+    portfolio: urlMatch ? (urlMatch[0].startsWith("http") ? urlMatch[0] : "https://" + urlMatch[0]) : null,
     current_title: computedTitle,
     total_experience: "5+ years",
     summary: (() => {

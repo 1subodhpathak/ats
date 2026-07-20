@@ -1,15 +1,6 @@
-import Groq from "groq-sdk";
+import apiClient from "./apiClient";
 
-// Initialize Groq client
-const groqApiKey = import.meta.env.VITE_GROQ_API_KEY;
-const groq = groqApiKey
-  ? new Groq({
-      apiKey: groqApiKey,
-      dangerouslyAllowBrowser: true
-    })
-  : null;
-
-export const isGroqConfigured = () => !!groq;
+export const isGroqConfigured = () => true;
 
 // Prompt Builders
 const buildAtsScorePrompt = (resumeText, targetRole) => {
@@ -622,10 +613,7 @@ const runLocalFiftyPointHeuristics = (resumeText, isModeB, jdText) => {
 
 // API Call Helpers
 const requestCompletions = async (prompt, temperature = 0.2, maxTokens = 1000) => {
-  if (!groq) {
-    throw new Error("Groq API client is not configured.");
-  }
-  const completion = await groq.chat.completions.create({
+  const response = await apiClient.post("/ai/chat-completion", {
     messages: [
       { role: "system", content: "You are an expert ATS review engine. Return valid raw JSON matching the requested schema. No explanations, no markdown block wrappers." },
       { role: "user", content: prompt }
@@ -635,7 +623,7 @@ const requestCompletions = async (prompt, temperature = 0.2, maxTokens = 1000) =
     max_tokens: maxTokens
   });
 
-  const content = completion.choices[0]?.message?.content || "";
+  const content = response.data.choices[0]?.message?.content || "";
   const cleaned = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
   return JSON.parse(cleaned);
 };

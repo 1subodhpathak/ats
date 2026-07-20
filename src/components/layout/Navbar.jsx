@@ -355,12 +355,12 @@ function Navbar() {
                 <SignedIn>
                   <div className="flex items-center gap-3">
                     <InternalUsagePill />
-                    <Link to="/check-ats" className="shrink-0">
+                    <Link to="/dashboard" className="shrink-0">
                       <button
                         type="button"
                         className="flex items-center gap-1 rounded-lg bg-royalblue px-4 py-2 text-xs font-bold text-swanwing shadow-sm transition hover:bg-sapphire"
                       >
-                        Check ATS
+                        Dashboard
                         <ChevronRight className="h-3.5 w-3.5" />
                       </button>
                     </Link>
@@ -465,12 +465,12 @@ function Navbar() {
                       </div>
                     </div>
 
-                    <Link to="/check-ats" onClick={() => setIsMobileNavOpen(false)}>
+                    <Link to="/dashboard" onClick={() => setIsMobileNavOpen(false)}>
                       <button
                         type="button"
                         className="w-full rounded-lg bg-royalblue py-2.5 text-center text-xs font-bold text-swanwing transition hover:bg-sapphire"
                       >
-                        Check ATS
+                        Dashboard
                       </button>
                     </Link>
                   </SignedIn>

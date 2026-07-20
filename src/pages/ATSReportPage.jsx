@@ -4059,6 +4059,7 @@ import {
   getResume,
   getResumeOriginalPreviewUrl,
 } from "../services/resumeApi";
+import { cleanCandidateName } from "../utils/resumeParser";
 
 const STOP_WORDS = new Set([
   "the", "and", "for", "with", "that", "this", "from", "into", "your", "have",
@@ -6292,10 +6293,12 @@ function ATSReportPage() {
     );
   }
 
+
+
   const candidateName =
-    report?.candidate_name ||
-    resume?.candidate_name ||
-    report?.resume_file_name ||
+    cleanCandidateName(report?.candidate_name) ||
+    cleanCandidateName(resume?.candidate_name) ||
+    cleanCandidateName(report?.resume_file_name) ||
     "Candidate";
 
   if (isPdfPrintMode) {
@@ -6585,20 +6588,7 @@ function ATSReportPage() {
                   </div>
                 </div>
 
-                <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {report?.extracted_resume_data?.candidate_profile?.current_title ? (
-                    <div className="rounded-2xl border border-slate-150 bg-white p-4 shadow-sm flex flex-col justify-between">
-                      <div>
-                        <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Current Role Profile</p>
-                        <h4 className="mt-2 text-sm font-black text-[#0B2146] leading-snug">
-                          {report?.extracted_resume_data?.candidate_profile?.current_title}
-                        </h4>
-                      </div>
-                      <span className="mt-3 text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md w-fit">
-                        Exp: {report?.extracted_resume_data?.candidate_profile?.total_experience || "Verified"}
-                      </span>
-                    </div>
-                  ) : null}
+                <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 
                   {report?.extracted_jd_data?.jd_profile?.target_role ? (
                     <div className="rounded-2xl border border-slate-150 bg-white p-4 shadow-sm flex flex-col justify-between">

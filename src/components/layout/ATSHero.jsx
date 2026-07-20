@@ -204,7 +204,7 @@ const ATSHero = () => {
               screen.
             </p>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 max-w-md">
               <div>
                 <Link
                   to="/check-ats"
@@ -221,24 +221,6 @@ const ATSHero = () => {
                     className="transition duration-300 group-hover:translate-x-1"
                   />
                 </Link>
-              </div>
-
-              <div>
-                <SignedIn>
-                  <Link
-                    to="/dashboard"
-                    className="group inline-flex w-full items-center justify-between rounded-xl border bg-white px-5 text-[13px] font-black transition duration-300 hover:-translate-y-0.5"
-                    style={{
-                      minHeight: "44px",
-                      color: colors.navy,
-                      borderColor: "#D8DFE7",
-                      boxShadow: "0 14px 24px rgba(16,36,90,0.08)",
-                    }}
-                  >
-                    <span>Dashboard</span>
-                    <LayoutDashboard size={18} />
-                  </Link>
-                </SignedIn>
               </div>
 
               <div>
