@@ -187,6 +187,81 @@ const buildLogicalLines = (text) => {
   return logicalLines;
 };
 
+// Clean raw name or filename by stripping extensions, underscores, and common resume metadata words
+export const cleanCandidateName = (name) => {
+  if (!name) return "";
+  
+  // 1. Strip file extension
+  let clean = name.replace(/\.[^/.]+$/, "");
+  
+  // 2. Replace separators with spaces
+  clean = clean.replace(/[_\-+]/g, " ");
+  
+  // 3. Remove common metadata/resume terminology
+  const noiseWords = /\b(resume|cv|curriculum|vitae|updated|final|latest|draft|formatted|profile|job|description|jd|apply|ver\d*|v\d+|_old)\b/gi;
+  const yearPattern = /\b(199\d|200\d|201\d|202\d)\b/g;
+  
+  clean = clean.replace(noiseWords, "").replace(yearPattern, "");
+  
+  // 4. Remove any remaining non-alphabetic/non-space characters
+  clean = clean.replace(/[^a-zA-Z\s]/g, "");
+  
+  // 5. Title case words
+  const words = clean.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "Candidate";
+  
+  return words.map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+};
+
+// Extract Candidate Name from raw text or filename
+export const extractCandidateName = (text, fileName) => {
+  if (!text) return cleanCandidateName(fileName);
+
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return cleanCandidateName(fileName);
+
+  const noisePatterns = [
+    /email|e-mail|phone|cell|mobile|contact|address|street|zip|curriculum|vitae|resume|cv/i,
+    /github\.com|linkedin\.com|github\/|linkedin\//i,
+    /^[^a-zA-Z\s]+$/, // no alphabetic characters
+    /^Page\s+\d+/i,
+    /@/i,           // contains email sign
+    /http|www\./i,  // contains website link
+    /^(education|experience|projects|skills|summary|profile|about|links|certifications|awards|publications|interests|languages|hobbies|work|employment|objective|history)$/i // standard section headers
+  ];
+
+  for (const line of lines.slice(0, 5)) {
+    // Clean contact details and links inline from the line before validating
+    let cleanLine = line
+      .replace(/\S+@\S+\.\S+/g, "") // remove emails
+      .replace(/\+?[\d-\s()]{7,}/g, "") // remove phone numbers
+      .replace(/(github\.com|linkedin\.com|github\/|linkedin\/)\S*/gi, "") // remove social handles
+      .replace(/[•▪●◦|]/g, "") // remove bullet indicators and separators
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!cleanLine) continue;
+
+    // Check against noise patterns
+    if (noisePatterns.some(pattern => pattern.test(cleanLine))) continue;
+
+    const words = cleanLine.split(/\s+/);
+    if (words.length >= 1 && words.length <= 4) {
+      // Ensure each word consists only of letters, hyphens, apostrophes, and optional trailing dots
+      const isAlphabetic = words.every(w => /^[a-zA-Z'-]+\.?$/.test(w));
+      if (isAlphabetic) {
+        return cleanLine.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+      }
+    }
+  }
+
+  // Fallback to regex name matcher from start of text
+  const regexMatch = text.match(/^([A-Z][a-z]+\s+[A-Z][a-z]+)/)?.[1];
+  if (regexMatch) return regexMatch;
+
+  return cleanCandidateName(fileName);
+};
+
 // Main Resume Builder
 export const buildResumeStructure = (resumeId, fileName, text) => {
   const lines = buildLogicalLines(text);
@@ -238,6 +313,7 @@ export const buildResumeStructure = (resumeId, fileName, text) => {
   return {
     resume_id: resumeId,
     file_name: fileName,
+    candidate_name: extractCandidateName(text, fileName),
     sections: filteredSections,
     raw_text: text
   };

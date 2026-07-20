@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import Card from "../common/Card";
+import { cleanCandidateName } from "../../utils/resumeParser";
 
 export const REPORT_NAV_SECTIONS = [
   { id: "report-overview", label: "Overview", icon: ClipboardCheck },
@@ -442,9 +443,11 @@ export function ReportCoverHero({ report, actions }) {
   const scores = getReportScores(report);
   const scoreBand = getScoreBand(scores.overall);
 
-  const candidateName =
-    getNestedValue(report, ["metadata.candidate_name", "candidate_name"]) ||
-    "Candidate";
+  const candidateName = (() => {
+    const rawName = getNestedValue(report, ["metadata.candidate_name", "candidate_name"]);
+    const fileName = getNestedValue(report, ["metadata.resume_file_name", "resume_file_name"]);
+    return cleanCandidateName(rawName) || cleanCandidateName(fileName) || "Candidate";
+  })();
 
   const resumeFileName =
     getNestedValue(report, ["metadata.resume_file_name", "resume_file_name"]) ||
@@ -787,9 +790,11 @@ export function ReportNavigation({ actions = null }) {
 }
 
 export function ReportMiniMetaBar({ report }) {
-  const candidateName =
-    getNestedValue(report, ["metadata.candidate_name", "candidate_name"]) ||
-    "Candidate";
+  const candidateName = (() => {
+    const rawName = getNestedValue(report, ["metadata.candidate_name", "candidate_name"]);
+    const fileName = getNestedValue(report, ["metadata.resume_file_name", "resume_file_name"]);
+    return cleanCandidateName(rawName) || cleanCandidateName(fileName) || "Candidate";
+  })();
 
   const analysisType =
     getNestedValue(report, ["metadata.analysis_type", "analysis_type"]) ===
@@ -1002,8 +1007,8 @@ export function MethodologySection({ report }) {
         <div>
           <div className="flex items-center gap-4">
             <div
-              className="h-[52px] w-[52px] rounded-full border bg-white"
-              style={{ borderColor: "#D8E5F0" }}
+              className="h-[52px] w-[52px] rounded-full border bg-[#143552]"
+              style={{ borderColor: "#143552" }}
             />
             <h3
               className="text-[clamp(1.35rem,1.85vw,1.75rem)] font-black tracking-[-0.03em]"

@@ -549,6 +549,25 @@ function ATSResumeUploadPage() {
         backgroundColor: colors.cream,
       }}
     >
+      {(isUploading || actionLoading) && (
+        <div 
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/30 transition-all duration-300"
+          style={{ backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }}
+        >
+          <div className="flex flex-col items-center gap-4 rounded-3xl bg-white p-8 shadow-2xl border border-slate-100">
+            <span className="h-12 w-12 animate-spin rounded-full border-4 border-slate-100 border-t-sky-600" />
+            <h3 className="text-lg font-black text-slate-850">
+              {isUploading ? "Uploading Resume..." : "Generating ATS Report..."}
+            </h3>
+            <p className="text-sm font-medium text-slate-500 text-center max-w-[240px]">
+              {isUploading 
+                ? "We are uploading your file safely to our database." 
+                : "Our AI engine is auditing 50 key ATS checks. This usually takes around 10-15 seconds."}
+            </p>
+          </div>
+        </div>
+      )}
+
       <AnimatedHeroBackground />
 
       <div
