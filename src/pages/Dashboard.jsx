@@ -28,6 +28,7 @@ import colorLogo from "../assets/logos/BlueLogo.png";
 
 import Loader from "../components/common/Loader";
 import Toast from "../components/common/Toast";
+import apiClient from "../services/apiClient";
 import { uploadJobDescriptionFile, getJobDescriptions } from "../services/jobDescriptionApi";
 import {
   getSavedReportPdfUrl,
@@ -62,7 +63,15 @@ function readStoredProfile() {
 
   try {
     const parsed = JSON.parse(window.localStorage.getItem(PROFILE_STORAGE_KEY) || "{}");
-    return { ...DEFAULT_PROFILE, ...parsed };
+    const master = JSON.parse(window.localStorage.getItem("careerSenseUser") || "{}");
+    return {
+      fullName: parsed.fullName || master.name || master.fullName || DEFAULT_PROFILE.fullName,
+      email: parsed.email || master.email || DEFAULT_PROFILE.email,
+      phone: parsed.phone || master.phone || DEFAULT_PROFILE.phone,
+      location: parsed.location || master.location || DEFAULT_PROFILE.location,
+      linkedin: parsed.linkedin || master.linkedinPortfolio || master.linkedin || DEFAULT_PROFILE.linkedin,
+      currentTitle: parsed.currentTitle || master.currentRole || master.currentJobTitle || DEFAULT_PROFILE.currentTitle,
+    };
   } catch {
     return DEFAULT_PROFILE;
   }
@@ -855,68 +864,49 @@ function BillingSection({ totalPoints, estimatedCost, ledger }) {
   );
 }
 
-function ProfileSection({ profileDraft, onChange, onSave }) {
+function ProfileSection({ profileDraft }) {
   return (
     <SectionCard className="px-10 py-8">
       <h2 className="text-[2.25rem] font-black tracking-[-0.04em] text-[#2F4054]">
-        Profile Settings
+        Profile Context (Read-Only)
       </h2>
-      <p className="mt-3 max-w-4xl text-[1.05rem] font-medium text-[#6A859B]">
-        Save your profile details here so CareerSense can personalize your workspace and future builder sessions.
+      <p className="mt-2 max-w-4xl text-[1.05rem] font-medium text-[#6A859B]">
+        Below is your active workspace profile synced from your master account.
       </p>
 
       <div className="mt-8 grid gap-6 xl:grid-cols-2">
-        <Field
-          label="Full Name"
-          value={profileDraft.fullName}
-          onChange={(value) => onChange("fullName", value)}
-          placeholder="Full Name"
-        />
-        <Field
-          label="Email Address"
-          value={profileDraft.email}
-          onChange={(value) => onChange("email", value)}
-          placeholder="email@gmail.com"
-        />
-        <Field
-          label="Phone Number"
-          value={profileDraft.phone}
-          onChange={(value) => onChange("phone", value)}
-          placeholder="9999999999"
-        />
-        <Field
-          label="Location / City"
-          value={profileDraft.location}
-          onChange={(value) => onChange("location", value)}
-          placeholder="New York"
-        />
-        <Field
-          label="LinkedIn / Portfolio"
-          value={profileDraft.linkedin}
-          onChange={(value) => onChange("linkedin", value)}
-          placeholder="linkedin.com/in/your-name"
-        />
-        <Field
-          label="Current Job Title"
-          value={profileDraft.currentTitle}
-          onChange={(value) => onChange("currentTitle", value)}
-          placeholder="Director, CEO, VP, Analyst..."
-        />
+        <ReadOnlyField label="Full Name" value={profileDraft.fullName || "—"} />
+        <ReadOnlyField label="Email Address" value={profileDraft.email || "—"} />
+        <ReadOnlyField label="Phone Number" value={profileDraft.phone || "—"} />
+        <ReadOnlyField label="Location / City" value={profileDraft.location || "—"} />
+        <ReadOnlyField label="LinkedIn / Portfolio" value={profileDraft.linkedin || "—"} />
+        <ReadOnlyField label="Current Job Title" value={profileDraft.currentTitle || "—"} />
       </div>
 
-      <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-[#DCE6EE] pt-6">
-        <p className="text-[1rem] font-medium text-[#6A859B]">
-          Changes are saved locally to prefill future ATS workspace sessions.
-        </p>
-        <button
-          type="button"
-          onClick={onSave}
-          className="rounded-[20px] bg-[#2F4054] px-6 py-3.5 text-[1rem] font-black text-white shadow-[0_18px_30px_rgba(18,36,72,0.16)]"
+      <div className="mt-8 flex justify-end">
+        <a
+          href="https://careersenseai.com/dashboard?tab=My%20Profile"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex h-[58px] items-center justify-center gap-2 rounded-[20px] bg-[#2F4054] px-8 text-[1.05rem] font-black text-white shadow-sm transition hover:bg-[#1C2836] active:scale-95"
         >
-          Save Configuration
-        </button>
+          Edit Profile ↗
+        </a>
       </div>
     </SectionCard>
+  );
+}
+
+function ReadOnlyField({ label, value }) {
+  return (
+    <label className="block">
+      <span className="text-[12px] font-black uppercase tracking-[0.24em] text-[#6B88A0]">
+        {label}
+      </span>
+      <div className="mt-3 flex h-[58px] w-full items-center rounded-[20px] border border-[#CFE0EC] bg-slate-50 px-5 text-[1.05rem] font-bold text-[#2F4054]">
+        {value}
+      </div>
+    </label>
   );
 }
 
@@ -999,8 +989,35 @@ function Dashboard() {
     }
   };
 
+  const loadMasterProfile = async () => {
+    try {
+      const apiBase = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/careersense/ats")
+        .replace(/\/careersense\/ats\/?$/, "");
+      const res = await apiClient.get(`${apiBase}/careersense/profile`);
+      const p = res.data?.profile || res.data;
+      if (p && (p.fullName || p.email || p.name || p.currentJobTitle)) {
+        const mapped = {
+          fullName: p.fullName || p.name || "",
+          email: p.email || "",
+          phone: p.phone || "",
+          location: p.location || "",
+          linkedin: p.linkedinPortfolio || p.linkedin || "",
+          currentTitle: p.currentJobTitle || p.currentRole || "",
+        };
+        setProfileDraft(mapped);
+        setProfile(mapped);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(mapped));
+        }
+      }
+    } catch (err) {
+      console.warn("Could not fetch master profile for ATS:", err?.message || err);
+    }
+  };
+
   useEffect(() => {
     loadWorkspace();
+    loadMasterProfile();
   }, []);
 
   const ledger = useMemo(() => {
