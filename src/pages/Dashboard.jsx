@@ -240,7 +240,7 @@ function WorkspaceHeader({
   return (
     <div className="border-b border-[#D7E3EC] px-6 py-5 sm:px-10 sm:py-6">
       <div className="flex items-center justify-between gap-4">
-        
+
         {/* Left Side: Hamburger & Title */}
         <div className="flex items-center gap-3 min-w-0">
           <button
@@ -263,7 +263,7 @@ function WorkspaceHeader({
 
         {/* Right Side: Desktop indicators/buttons & User Button */}
         <div className="flex items-center gap-3 shrink-0">
-          
+
           {/* Desktop Only indicators/buttons */}
           <div className="hidden lg:flex lg:items-center lg:gap-3">
             <div className="flex items-center gap-2 rounded-full border border-[#CFE0EC] bg-white/88 px-5 py-3 text-[#2F4054] shadow-[0_12px_26px_rgba(21,46,84,0.04)]">
@@ -868,7 +868,7 @@ function ProfileSection({ profileDraft }) {
   return (
     <SectionCard className="px-10 py-8">
       <h2 className="text-[2.25rem] font-black tracking-[-0.04em] text-[#2F4054]">
-        Profile Context (Read-Only)
+        Profile Settings (Read-Only)
       </h2>
       <p className="mt-2 max-w-4xl text-[1.05rem] font-medium text-[#6A859B]">
         Below is your active workspace profile synced from your master account.
@@ -1199,7 +1199,7 @@ function Dashboard() {
                   transition={{ type: "spring", damping: 25, stiffness: 220 }}
                   className="relative flex w-full max-w-[300px] flex-col bg-white p-6 shadow-2xl border-r border-[#D7E3EC] h-full"
                 >
-                  
+
                   {/* Header containing Logo & Close button */}
                   <div className="flex items-center justify-between mb-8">
                     <button
@@ -1259,11 +1259,10 @@ function Dashboard() {
                             handleSectionChange(id);
                             setIsMobileNavOpen(false);
                           }}
-                          className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-[14px] font-bold transition-all duration-200 ${
-                            active
-                              ? "bg-[#DCE7F1] text-[#2F4054] shadow-sm"
-                              : "text-[#66859C] hover:bg-slate-50 hover:text-[#2F4054]"
-                          }`}
+                          className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-[14px] font-bold transition-all duration-200 ${active
+                            ? "bg-[#DCE7F1] text-[#2F4054] shadow-sm"
+                            : "text-[#66859C] hover:bg-slate-50 hover:text-[#2F4054]"
+                            }`}
                         >
                           <Icon className="h-[18px] w-[18px]" />
                           {label}
