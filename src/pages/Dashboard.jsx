@@ -22,6 +22,7 @@ import {
   Upload,
   UserRound,
   X,
+  Star,
 } from "lucide-react";
 import { UserButton } from "@clerk/clerk-react";
 import colorLogo from "../assets/logos/BlueLogo.png";
@@ -200,8 +201,8 @@ function DashboardSidebar({ activeSection, onSelectSection }) {
           <p className="text-[2rem] font-black leading-none tracking-[-0.04em] text-[#2F4054]">
             <span className="text-[#0D2E63]">Career</span><span className="text-[#306099]">Sense</span>
           </p>
-          <p className="mt-1 text-[12px] font-black uppercase tracking-[0.28em] text-[#6B87A0]">
-            Workspace
+          <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-[#6B87A0] whitespace-nowrap">
+            ATS Intelligence
           </p>
         </div>
       </Link>
@@ -265,21 +266,24 @@ function WorkspaceHeader({
         <div className="flex items-center gap-3 shrink-0">
 
           {/* Desktop Only indicators/buttons */}
-          <div className="hidden lg:flex lg:items-center lg:gap-3">
-            <div className="flex items-center gap-2 rounded-full border border-[#CFE0EC] bg-white/88 px-5 py-3 text-[#2F4054] shadow-[0_12px_26px_rgba(21,46,84,0.04)]">
-              <Bolt className="h-4 w-4 text-[#6A859B]" />
-              <span className="text-[0.96rem] font-bold text-[#6A859B]">
-                Career Points Used
-              </span>
-              <span className="text-[1.05rem] font-black">{formatPoints(totalPoints)}</span>
+          <div className="hidden lg:flex lg:items-center lg:gap-2">
+            <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 shadow-2xs">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-50 text-amber-500 shrink-0">
+                <Star className="h-3.5 w-3.5" fill="currentColor" />
+              </div>
+              <div className="flex flex-col text-left leading-none">
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 leading-tight">CS Points Used</p>
+                <p className="text-xs font-black text-slate-900 leading-none mt-0.5">{formatPoints(totalPoints)}</p>
+              </div>
             </div>
-
-            <div className="flex items-center gap-2 rounded-full border border-[#CFE0EC] bg-white/88 px-5 py-3 text-[#2F4054] shadow-[0_12px_26px_rgba(21,46,84,0.04)]">
-              <Gauge className="h-4 w-4 text-[#6A859B]" />
-              <span className="text-[0.96rem] font-bold text-[#6A859B]">
-                Estimated Cost
-              </span>
-              <span className="text-[1.05rem] font-black">{formatUsd(estimatedCost)}</span>
+            <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 shadow-2xs">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 shrink-0">
+                <span className="text-xs font-black">$</span>
+              </div>
+              <div className="flex flex-col text-left leading-none">
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 leading-tight">Bill</p>
+                <p className="text-xs font-black text-slate-900 leading-none mt-0.5">{formatUsd(estimatedCost)}</p>
+              </div>
             </div>
 
             <button
@@ -1219,8 +1223,8 @@ function Dashboard() {
                           <span className="text-[#0D2E63]">Career</span>
                           <span className="text-[#306099]">Sense</span>
                         </h1>
-                        <p className="mt-1 text-[9px] font-black uppercase tracking-[0.28em] text-[#6B87A0]">
-                          Workspace
+                        <p className="mt-1 text-[9px] font-black uppercase tracking-[0.22em] text-[#6B87A0] whitespace-nowrap">
+                          ATS Intelligence
                         </p>
                       </div>
                     </button>

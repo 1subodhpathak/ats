@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   ReceiptText,
   Zap,
+  Star,
   Menu,
   X,
 } from "lucide-react";
@@ -154,27 +155,24 @@ function Navbar() {
   };
 
   const InternalUsagePill = () => (
-    <div className="hidden items-center gap-3 rounded-2xl border border-[#CFE0EC] bg-white/90 px-3 py-2 shadow-[0_8px_20px_rgba(16,36,90,0.045)] md:flex">
-      <div className="flex items-center gap-1.5">
-        <Zap className="h-3.5 w-3.5 text-[#6B87A0]" />
-        <span className="text-[9px] font-black uppercase tracking-[0.12em] text-[#6B87A0]">
-          Points
-        </span>
-        <span className="text-sm font-black tracking-tight text-[#2F4054]">
-          {new Intl.NumberFormat().format(totalPoints)}
-        </span>
+    <div className="hidden items-center gap-2 md:flex">
+      <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 shadow-2xs">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-50 text-amber-500 shrink-0">
+          <Star className="h-3.5 w-3.5" fill="currentColor" />
+        </div>
+        <div className="flex flex-col text-left leading-none">
+          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 leading-tight">CS Points Used</p>
+          <p className="text-xs font-black text-slate-900 leading-none mt-0.5">{new Intl.NumberFormat().format(totalPoints)}</p>
+        </div>
       </div>
-
-      <div className="h-4 w-px bg-[#D6E1E9]" />
-
-      <div className="flex items-center gap-1.5">
-        <ReceiptText className="h-3.5 w-3.5 text-[#6B87A0]" />
-        <span className="text-[9px] font-black uppercase tracking-[0.12em] text-[#6B87A0]">
-          Bill
-        </span>
-        <span className="text-sm font-black tracking-tight text-[#2F4054]">
-          {`$${estimatedCost.toFixed(4)}`}
-        </span>
+      <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 shadow-2xs">
+        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 shrink-0">
+          <span className="text-xs font-black">$</span>
+        </div>
+        <div className="flex flex-col text-left leading-none">
+          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 leading-tight">Bill</p>
+          <p className="text-xs font-black text-slate-900 leading-none mt-0.5">${estimatedCost.toFixed(4)}</p>
+        </div>
       </div>
     </div>
   );
