@@ -794,19 +794,19 @@ function BillingSection({ totalPoints, estimatedCost, ledger }) {
 
         <div className="mt-8 grid gap-5 xl:grid-cols-3">
           <SmallMetricCard
-            label="Career Points Used"
-            value={formatPoints(totalPoints)}
-            subtext="Total ATS activity across saved operations"
-          />
-          <SmallMetricCard
-            label="Estimated Cost"
+            label="Current Balance"
             value={formatUsd(estimatedCost)}
-            subtext="Based on current Career Sense Point conversion"
+            subtext="Settled"
           />
           <SmallMetricCard
-            label="Logged Actions"
-            value={ledger.length}
-            subtext="Saved ATS, resume, and JD events"
+            label="Skills Points Earned"
+            value={formatPoints(totalPoints)}
+            subtext="Earned from ATS activity"
+          />
+          <SmallMetricCard
+            label="Active Operational Tier"
+            value="Free Pool"
+            subtext="Quota Limited"
           />
         </div>
       </SectionCard>

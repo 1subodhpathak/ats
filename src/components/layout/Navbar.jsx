@@ -286,15 +286,15 @@ function Navbar() {
     <header
       className={
         isLandingPage
-          ? "sticky top-0 z-50 w-full bg-transparent border-none shadow-none px-3 pt-3 sm:px-6 sm:pt-4"
-          : "sticky top-0 z-50 border-b backdrop-blur-xl border-[#D6E1E9]/45 bg-[#F7F3ED]/96 px-4 py-2.5 sm:px-6 sm:py-3 shadow-[0_8px_22px_rgba(16,36,90,0.04)]"
+          ? "relative z-50 w-full border-b border-[#D6E1E9]/60 bg-[#F6F1EA]/95 shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-md"
+          : "relative z-50 w-full border-b backdrop-blur-xl border-[#D6E1E9]/45 bg-[#F7F3ED]/96 shadow-[0_10px_30px_rgba(0,0,0,0.12)]"
       }
     >
       <div
         className={
           isLandingPage
-            ? "mx-auto flex flex-col w-full max-w-[1536px] border border-white/60 bg-[#F6F1EA]/60 px-3 py-2.5 sm:px-6 sm:py-3.5 shadow-[0_18px_60px_rgba(47,65,86,0.12)] backdrop-blur-2xl rounded-xl sm:rounded-2xl"
-            : "mx-auto flex flex-col w-full max-w-[1536px]"
+            ? "mx-auto flex flex-col w-full max-w-[1600px] px-4 py-2.5 sm:px-8 sm:py-3"
+            : "mx-auto flex flex-col w-full max-w-[1600px] px-4 py-2.5 sm:px-8 sm:py-3"
         }
       >
         <div className="flex w-full items-center justify-between gap-3">
