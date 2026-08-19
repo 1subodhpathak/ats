@@ -28,50 +28,55 @@ import ATSReportCoverage from "../components/layout/ATSReportCoverage";
 import ATSHero from "../components/layout/ATSHero";
 import AnimatedHeroBackground from "../components/layout/AnimatedHeroBackground";
 
+import aaravImage from "../assets/testimonials/aarav.png";
+import meeraImage from "../assets/testimonials/meera.png";
+import adityaImage from "../assets/testimonials/aditya.png";
+import kavyaImage from "../assets/testimonials/kavya.png";
+import rohanImage from "../assets/testimonials/rohan.png";
+import snehaImage from "../assets/testimonials/sneha.png";
+
 const testimonials = [
-  // Your original 3
   {
-    name: "Kreeti Mathur",
-    role: "Staff Software Engineer",
-    company: "formerly @ ISGEC",
-    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=400&h=250",
-    text: "After applying to 50+ roles with no replies, I ran my resume through CareerSense. The 50-pointer checklist caught 4 critical parsing bugs. Two weeks after fixing them, I landed three interviews at Google and Stripe!"
+    name: "Aarav Sharma",
+    role: "Principal Software Engineer",
+    company: "Tata Consultancy Services",
+    image: aaravImage,
+    text: "After applying to 50+ roles with no replies, I ran my resume through CareerSense. The 50-pointer checklist caught 4 critical parsing bugs. Two weeks after fixing them, I landed three interviews!"
   },
   {
-    name: "Naveen Malhotra",
-    role: "Senior Solutions Architect",
-    company: "Amazon Web Services",
-    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=400&h=250",
+    name: "Meera Iyer",
+    role: "Head of Talent Acquisition",
+    company: "Infosys",
+    image: meeraImage,
     text: "The Job Description Alignment mode is a cheat code. It highlighted exact keyword gaps I missed. Being able to edit and re-scan in real-time saved me hours of manual polishing."
   },
   {
-    name: "Sarah Jenkins",
-    role: "VP of Product",
-    company: "Deloitte",
-    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400&h=250",
-    text: "Our university career center recommends CareerSense to all graduating seniors. The instant scoring and recruiter-grade tenses guide make it simple for students to match executive hiring standards."
-  },
-  // 3 New additions
-  {
-    name: "David Chen",
-    role: "Data Analyst",
-    company: "Microsoft",
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400&h=250",
-    text: "I thought my resume was perfect because of a fancy two-column template. CareerSense showed me it was failing ATS parsers completely. I switched to their recommended format, scored a 92%, and finally got past the screening round."
+    name: "Aditya Varma",
+    role: "Lead Data Scientist",
+    company: "Wipro Technologies",
+    image: adityaImage,
+    text: "I thought my resume was perfect because of a fancy two-column template. CareerSense showed me it was failing ATS parsers completely. I switched to their recommended format and scored 94%!"
   },
   {
-    name: "Elena Rodriguez",
-    role: "Growth Marketing Lead",
-    company: "HubSpot",
-    image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=400&h=250",
-    text: "The 'Impact Metrics' analysis completely transformed how I present my achievements. It pushed me to quantify my campaigns and use stronger action verbs, raising my impact score from 55 to 88."
+    name: "Kavya Nair",
+    role: "Senior Product Manager",
+    company: "Flipkart",
+    image: kavyaImage,
+    text: "Our team recommends CareerSense to all job seekers. The instant scoring and recruiter-grade tenses guide make it simple to match executive hiring standards."
   },
   {
-    name: "Marcus Thorne",
-    role: "Director of Operations",
-    company: "Oracle",
-    image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=400&h=250",
-    text: "As a hiring manager myself, I know exactly what modern ATS systems look for. CareerSense is the closest I've seen a tool get to an actual recruiter's initial screen. The readability feedback is spot on."
+    name: "Rohan Deshmukh",
+    role: "DevOps Architect",
+    company: "Reliance Jio",
+    image: rohanImage,
+    text: "The 'Impact Metrics' analysis completely transformed how I present my engineering achievements. It pushed me to quantify my work, raising my score from 55 to 91."
+  },
+  {
+    name: "Sneha Kulkarni",
+    role: "Engineering Director",
+    company: "Tech Mahindra",
+    image: snehaImage,
+    text: "As a hiring manager myself, I know exactly what modern ATS systems look for. CareerSense is the closest tool to an actual recruiter's initial screen. The readability feedback is spot on."
   }
 ];
 
@@ -312,11 +317,11 @@ function Home() {
                           className="relative bg-white border border-shellstone/50 rounded-[24px] shadow-sm hover:shadow-xl hover:-translate-y-1 transition duration-300 flex flex-col h-full overflow-hidden group"
                         >
                           {/* Flush full-width photo at the top */}
-                          <div className="relative w-full h-44 overflow-hidden bg-slate-50">
+                          <div className="relative w-full h-60 overflow-hidden bg-slate-100">
                             <img
                               src={image}
                               alt={name}
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              className="w-full h-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
                             />
                             {/* Overlapping circular quote badge */}
                             <div className="absolute bottom-0 left-4 translate-y-1/2 z-10 h-8 w-8 rounded-full bg-royalblue text-swanwing flex items-center justify-center shadow-md border-2 border-white">
