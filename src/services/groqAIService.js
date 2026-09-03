@@ -577,7 +577,8 @@ const normalizeAnalysis = (rawAnalysis, jdText) => {
     summary,
     quick_scan_sections: quickScanSections,
     category_scores: buildCategoryScoresFromPoints(normalizedPoints),
-    analysis_points: normalizedPoints
+    analysis_points: normalizedPoints,
+    total_tokens: rawAnalysis.total_tokens || 0
   };
 };
 
@@ -623,9 +624,16 @@ const requestCompletions = async (prompt, temperature = 0.2, maxTokens = 1000) =
     max_tokens: maxTokens
   });
 
+  const usage = response.data.usage || {};
+  const totalTokens = (usage.prompt_tokens || 0) + (usage.completion_tokens || 0) || (usage.total_tokens || 0);
+
   const content = response.data.choices[0]?.message?.content || "";
   const cleaned = content.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
-  return JSON.parse(cleaned);
+  const parsed = JSON.parse(cleaned);
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    parsed.total_tokens = totalTokens;
+  }
+  return parsed;
 };
 
 // Exported Services

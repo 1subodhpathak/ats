@@ -13,10 +13,12 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { SignedIn, SignedOut, SignInButton, UserButton, useAuth } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, SignInButton, useAuth } from "@clerk/clerk-react";
 import useResumeStore from "../../store/useResumeStore";
 import colorLogo from "../../assets/logos/BlueLogo.png";
 import apiClient from "../../services/apiClient";
+import TokenBadgeWidget from "../common/TokenBadgeWidget";
+import CustomUserButton from "../common/CustomUserButton";
 
 function Navbar() {
   const location = useLocation();
@@ -259,6 +261,7 @@ function Navbar() {
 
   const InternalActions = () => (
     <div className="flex shrink-0 items-center gap-2">
+      <TokenBadgeWidget isLightTheme={true} />
       <InternalUsagePill />
 
       <Link to="/dashboard">
@@ -367,7 +370,7 @@ function Navbar() {
               </div>
 
               <SignedIn>
-                <UserButton afterSignOutUrl="/" />
+                <CustomUserButton />
               </SignedIn>
 
               <button
@@ -381,7 +384,7 @@ function Navbar() {
           ) : (
             <div className="flex items-center gap-3">
               <SignedIn>
-                <UserButton afterSignOutUrl="/" />
+                <CustomUserButton />
               </SignedIn>
 
               <button

@@ -8,6 +8,12 @@ const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use(async (config) => {
+  const clerkId = window.clerkUserId || window.Clerk?.user?.id || "";
+  if (clerkId) {
+    config.headers["x-clerk-user-id"] = clerkId;
+    config.params = { ...config.params, clerkId };
+  }
+
   if (window.clerkGetToken) {
     try {
       const token = await window.clerkGetToken();

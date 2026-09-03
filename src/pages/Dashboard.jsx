@@ -24,7 +24,7 @@ import {
   X,
   Star,
 } from "lucide-react";
-import { UserButton } from "@clerk/clerk-react";
+import CustomUserButton from "../components/common/CustomUserButton";
 import colorLogo from "../assets/logos/BlueLogo.png";
 
 import Loader from "../components/common/Loader";
@@ -114,10 +114,11 @@ function formatShortDate(value) {
   });
 }
 
-function estimateReportPoints(report) {
-  const base = report.has_job_description ? 1825 : 1350;
-  const scoreBonus = Math.round((report.overall_score || 0) * 4.75);
-  return base + scoreBonus;
+function getActualReportTokens(report) {
+  if (report.tokens_cost || report.careerPoints || report.total_tokens || report.tokensCost) {
+    return report.tokens_cost || report.careerPoints || report.total_tokens || report.tokensCost;
+  }
+  return report.has_job_description ? 2000 : 1500;
 }
 
 function estimateResumePoints() {
@@ -136,7 +137,7 @@ function formatUsd(value) {
   return `$${Number(value || 0).toFixed(4)}`;
 }
 
-function withTimeout(promise, timeoutMs = 8000) {
+function withTimeout(promise, timeoutMs = 20000) {
   return Promise.race([
     promise,
     new Promise((_, reject) => {
@@ -297,8 +298,8 @@ function WorkspaceHeader({
           </div>
 
           {/* User avatar button - visible everywhere */}
-          <div className="flex items-center scale-110 shrink-0">
-            <UserButton afterSignOutUrl="/" />
+          <div className="flex items-center shrink-0">
+            <CustomUserButton />
           </div>
         </div>
       </div>
@@ -952,10 +953,21 @@ function Dashboard() {
   const activeSectionMeta =
     SECTION_ITEMS.find((item) => item.id === activeSection) || SECTION_ITEMS[0];
 
+  const [serverLedgerLogs, setServerLedgerLogs] = useState([]);
+
   const loadWorkspace = async () => {
     setStatus("loading");
     setError("");
     try {
+      try {
+        const ledgerRes = await apiClient.get("http://localhost:4000/careersense/subscription/ledger");
+        if (ledgerRes.data && ledgerRes.data.ledger) {
+          setServerLedgerLogs(ledgerRes.data.ledger);
+        }
+      } catch (lErr) {
+        console.warn("Could not load server token ledger:", lErr);
+      }
+
       const [resumeResult, reportResult, jdResult] = await Promise.allSettled([
         withTimeout(getResumes()),
         withTimeout(getSavedReports()),
@@ -1025,12 +1037,25 @@ function Dashboard() {
   }, []);
 
   const ledger = useMemo(() => {
+    if (serverLedgerLogs.length > 0) {
+      return serverLedgerLogs
+        .filter(log => log.amount < 0 && (log.serviceId === 'ats_resume_scan' || log.serviceId === 'ATS Report' || log.serviceId === 'career_tool'))
+        .map(log => ({
+          id: log._id,
+          operation: "ATS Report",
+          resource: "Resume Analysis",
+          timestamp: log.createdAt,
+          units: Math.abs(log.amount),
+          detail: "Saved ATS report generated from resume analysis"
+        }));
+    }
+
     const reportEntries = reports.map((report) => ({
       id: `report-${report.report_id}`,
       operation: report.has_job_description ? "ATS + JD Report" : "ATS Report",
       resource: report.candidate_name || report.resume_file_name,
       timestamp: report.created_at,
-      units: estimateReportPoints(report),
+      units: getActualReportTokens(report),
       detail: report.has_job_description ? "Saved ATS report with job description alignment" : "Saved ATS report generated from resume analysis",
     }));
 

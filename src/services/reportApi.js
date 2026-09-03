@@ -6,7 +6,7 @@ import { getResumeFileBlob } from "./resumeApi";
 
 // Helper to dynamically build category scores from raw analysis points
 const buildCategoryScores = (points) => {
-  if (!points || !points.length) return [];
+  if (!points || !Array.isArray(points)) return [];
   
   const groups = {};
   points.forEach(point => {
@@ -62,6 +62,12 @@ export const generateAnalysisReport = async (payload) => {
   
   const analysisReport = await evaluateFiftyPointAnalysis(resumeText, payload.jd_text);
   analysisReport.jdText = payload.jd_text;
+
+  // Pass actual Claude token count to backend for exact token ledger deduction
+  if (analysisReport.total_tokens) {
+    analysisReport.careerPoints = analysisReport.total_tokens;
+    analysisReport.tokensCost = analysisReport.total_tokens;
+  }
 
   // Compile full advanced report fields locally in the client
   const advancedReport = buildAdvancedReport(analysisReport, resumeText, fileName);
@@ -123,27 +129,35 @@ export const saveAnalysisReport = async (analysisId) => {
 };
 
 export const getSavedReports = async () => {
-  const response = await apiClient.get("/all");
-  const resumes = response.data.storedResumes || [];
-  
-  const reports = resumes
-    .filter((r) => r.latestAnalysis && r.latestAnalysis.overall_score)
-    .map((resume) => {
-      const categoryScores = buildCategoryScores(resume.latestAnalysis?.analysis_points);
-      return {
-        report_id: resume.resume_id,
-        resume_id: resume.resume_id,
-        resume_file_name: resume.file_name,
-        candidate_name: resume.candidate_name,
-        created_at: resume.latestAnalysis.createdAt || resume.updatedAt,
-        overall_score: resume.latestAnalysis.overall_score || resume.current_score,
-        has_job_description: !!resume.latestAnalysis.jdText,
-        report_type: resume.latestAnalysis.jdText ? "resume_jd" : "resume",
-        category_scores: categoryScores
-      };
-    });
+  try {
+    const response = await apiClient.get("/all");
+    const resumes = response.data.storedResumes || [];
+    
+    const reports = resumes
+      .filter((r) => r.latestAnalysis && r.latestAnalysis.overall_score)
+      .map((resume) => {
+        const categoryScores = buildCategoryScores(resume.latestAnalysis?.analysis_points);
+        return {
+          report_id: resume.resume_id,
+          resume_id: resume.resume_id,
+          resume_file_name: resume.file_name,
+          candidate_name: resume.candidate_name,
+          created_at: resume.latestAnalysis.createdAt || resume.updatedAt,
+          overall_score: resume.latestAnalysis.overall_score || resume.current_score,
+          has_job_description: !!resume.latestAnalysis.jdText,
+          report_type: resume.latestAnalysis.jdText ? "resume_jd" : "resume",
+          category_scores: categoryScores,
+          tokens_cost: resume.latestAnalysis.tokensCost || resume.latestAnalysis.careerPoints || resume.latestAnalysis.total_tokens || 0,
+          careerPoints: resume.latestAnalysis.careerPoints || resume.latestAnalysis.tokensCost || resume.latestAnalysis.total_tokens || 0,
+          total_tokens: resume.latestAnalysis.total_tokens || resume.latestAnalysis.tokensCost || resume.latestAnalysis.careerPoints || 0
+        };
+      });
 
-  return { data: reports };
+    return { data: reports };
+  } catch (err) {
+    console.error("[getSavedReports Error]", err);
+    return { data: [] };
+  }
 };
 
 export const getSavedReport = getAnalysisReport;
