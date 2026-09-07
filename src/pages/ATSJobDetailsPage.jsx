@@ -637,6 +637,7 @@ function ATSJobDetailsPage() {
   };
 
   const handleGenerateReport = async () => {
+    if (analysisState.status === "loading") return;
     if (!activeResumeId) {
       setAnalysisState({
         status: "error",

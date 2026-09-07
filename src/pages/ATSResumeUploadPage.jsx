@@ -433,7 +433,7 @@ function ATSResumeUploadPage() {
 
         setPageError(
           error?.response?.data?.detail ||
-            "Unable to load stored resumes right now."
+          "Unable to load stored resumes right now."
         );
         setPageStatus("error");
       }
@@ -484,7 +484,7 @@ function ATSResumeUploadPage() {
     } catch (error) {
       setActionError(
         error?.response?.data?.detail ||
-          "Unable to open the selected stored resume."
+        "Unable to open the selected stored resume."
       );
     } finally {
       setStoredResumeLoadingId("");
@@ -492,6 +492,8 @@ function ATSResumeUploadPage() {
   };
 
   const handlePrimaryAction = async () => {
+    if (actionLoading || isUploading) return;
+
     setActionError("");
     setActionLoading(true);
 
@@ -507,7 +509,7 @@ function ATSResumeUploadPage() {
       } catch (error) {
         setActionError(
           error?.response?.data?.detail ||
-            "Unable to load the selected stored resume."
+          "Unable to load the selected stored resume."
         );
       }
     } else {
@@ -534,7 +536,7 @@ function ATSResumeUploadPage() {
     } catch (error) {
       setActionError(
         error?.response?.data?.detail ||
-          "ATS analysis failed. Please try again in a moment."
+        "ATS analysis failed. Please try again in a moment."
       );
     } finally {
       setActionLoading(false);
@@ -550,7 +552,7 @@ function ATSResumeUploadPage() {
       }}
     >
       {(isUploading || actionLoading) && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-slate-900/30 transition-all duration-300"
           style={{ backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)" }}
         >
@@ -560,9 +562,9 @@ function ATSResumeUploadPage() {
               {isUploading ? "Uploading Resume..." : "Generating ATS Report..."}
             </h3>
             <p className="text-sm font-medium text-slate-500 text-center max-w-[240px]">
-              {isUploading 
-                ? "We are uploading your file safely to our database." 
-                : "Our AI engine is auditing 50 key ATS checks. This usually takes around 10-15 seconds."}
+              {isUploading
+                ? "We are uploading your file safely to our database."
+                : "Our AI engine is auditing 50 key ATS checks. This usually takes around 1-2 minutes."}
             </p>
           </div>
         </div>
