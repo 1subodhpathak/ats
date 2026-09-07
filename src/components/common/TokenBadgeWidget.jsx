@@ -12,7 +12,7 @@ export default function TokenBadgeWidget({ isLightTheme = false }) {
 
     const fetchTokenStatus = async () => {
       try {
-        const apiBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
+        const apiBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE_URL || "https://server.datasenseai.com";
         const backendUrl = apiBase.replace(/\/careersense\/ats\/?$/, "");
         const res = await fetch(`${backendUrl}/careersense/subscription/status?clerkId=${user.id}`);
         const data = await res.json();
