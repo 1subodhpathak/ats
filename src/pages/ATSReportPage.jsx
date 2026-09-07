@@ -4023,6 +4023,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import { useUser } from "@clerk/clerk-react";
+import DownloadGateModal from "../components/common/DownloadGateModal";
+import { checkDownloadPass } from "../services/downloadGateService";
 import {
   BarChart3,
   ChevronDown,
@@ -4859,6 +4862,7 @@ function ReportSectionCard({ section }) {
 }
 
 function ATSReportPage() {
+  const { user } = useUser();
   const { analysisId, reportId } = useParams();
   const [report, setReport] = useState(null);
   const [resume, setResume] = useState(null);
@@ -4877,6 +4881,7 @@ function ATSReportPage() {
   const [isQuickScanMinimized, setIsQuickScanMinimized] = useState(false);
   const [isVisualReportMinimized, setIsVisualReportMinimized] = useState(false);
   const [isReportPreviewOpen, setIsReportPreviewOpen] = useState(false);
+  const [isDownloadGateOpen, setIsDownloadGateOpen] = useState(false);
   const reportViewParams = useMemo(() => {
     if (typeof window === "undefined") {
       return new URLSearchParams();
@@ -6256,7 +6261,7 @@ function ATSReportPage() {
     return `${window.location.origin}${path}?printMode=1`;
   }, [analysisId, reportId]);
 
-  const handleDownloadPdf = () => {
+  const executeDownloadPdf = () => {
     if (!report || typeof window === "undefined") {
       return;
     }
@@ -6268,6 +6273,24 @@ function ATSReportPage() {
     if (printWindow) {
       printWindow.opener = null;
     }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!report || typeof window === "undefined") return;
+
+    if (user?.id) {
+      try {
+        const passCheck = await checkDownloadPass(user.id, "ats_report", reportId || analysisId || "default");
+        if (!passCheck.canDownload) {
+          setIsDownloadGateOpen(true);
+          return;
+        }
+      } catch (e) {
+        console.warn("Download pass verification check error:", e);
+      }
+    }
+
+    executeDownloadPdf();
   };
 
   const openReportPreview = () => {
@@ -7599,6 +7622,16 @@ function ATSReportPage() {
           </div>
         </div>
       )}
+
+      <DownloadGateModal
+        isOpen={isDownloadGateOpen}
+        onClose={() => setIsDownloadGateOpen(false)}
+        clerkUser={user}
+        resourceType="ats_report"
+        resourceId={reportId || analysisId || "default"}
+        resourceName="ATS Analysis Report PDF"
+        onSuccessDownload={executeDownloadPdf}
+      />
     </div>
   );
 }
