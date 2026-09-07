@@ -960,7 +960,8 @@ function Dashboard() {
     setError("");
     try {
       try {
-        const ledgerRes = await apiClient.get("http://localhost:4000/careersense/subscription/ledger");
+        const apiBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE_URL || "https://server.datasenseai.com";
+        const ledgerRes = await apiClient.get(`${apiBase}/careersense/subscription/ledger`);
         if (ledgerRes.data && ledgerRes.data.ledger) {
           setServerLedgerLogs(ledgerRes.data.ledger);
         }
