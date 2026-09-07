@@ -24,6 +24,7 @@ import {
   X,
   Star,
 } from "lucide-react";
+import { useUser } from "@clerk/clerk-react";
 import CustomUserButton from "../components/common/CustomUserButton";
 import colorLogo from "../assets/logos/BlueLogo.png";
 
@@ -45,8 +46,9 @@ const SECTION_ITEMS = [
   { id: "profile", label: "Profile Settings", icon: Settings2 },
 ];
 
-const PROFILE_STORAGE_KEY = "careersense-dashboard-profile";
 const DASHBOARD_SCALE = 0.75;
+
+const PROFILE_STORAGE_KEY = "careersense-dashboard-profile";
 
 const DEFAULT_PROFILE = {
   fullName: "",
@@ -118,7 +120,9 @@ function getActualReportTokens(report) {
   if (report.tokens_cost || report.careerPoints || report.total_tokens || report.tokensCost) {
     return report.tokens_cost || report.careerPoints || report.total_tokens || report.tokensCost;
   }
-  return report.has_job_description ? 2000 : 1500;
+  const base = report.has_job_description ? 1825 : 1350;
+  const scoreBonus = Math.round((report.overall_score || 0) * 4.75);
+  return base + scoreBonus;
 }
 
 function estimateResumePoints() {
@@ -236,6 +240,7 @@ function WorkspaceHeader({
   subtitle,
   totalPoints,
   estimatedCost,
+  subData,
   onStartBuilder,
   onOpenMobileNav,
 }) {
@@ -264,7 +269,10 @@ function WorkspaceHeader({
         </div>
 
         {/* Right Side: Desktop indicators/buttons & User Button */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div
+          className="flex items-center gap-3 shrink-0"
+          style={{ zoom: 1 / DASHBOARD_SCALE }}
+        >
 
           {/* Desktop Only indicators/buttons */}
           <div className="hidden lg:flex lg:items-center lg:gap-2">
@@ -273,8 +281,8 @@ function WorkspaceHeader({
                 <Star className="h-3.5 w-3.5" fill="currentColor" />
               </div>
               <div className="flex flex-col text-left leading-none">
-                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 leading-tight">CS Points Used</p>
-                <p className="text-xs font-black text-slate-900 leading-none mt-0.5">{formatPoints(totalPoints)}</p>
+                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 leading-tight">AI Tokens Remaining</p>
+                <p className="text-xs font-black text-slate-900 leading-none mt-0.5">{(subData?.tokensRemaining ?? 10000).toLocaleString()}</p>
               </div>
             </div>
             <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 shadow-2xs">
@@ -290,9 +298,9 @@ function WorkspaceHeader({
             <button
               type="button"
               onClick={onStartBuilder}
-              className="inline-flex items-center gap-3 rounded-[20px] bg-[#2F4054] px-6 py-3.5 text-[1rem] font-black text-white shadow-[0_18px_30px_rgba(18,36,72,0.18)] transition hover:-translate-y-0.5 hover:bg-[#3A4D64]"
+              className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#2F4054] px-3.5 text-xs font-bold text-white shadow-2xs transition hover:bg-[#3A4D64]"
             >
-              <Sparkles className="h-5 w-5" />
+              <Sparkles className="h-3.5 w-3.5" />
               Check ATS
             </button>
           </div>
@@ -778,7 +786,7 @@ function DataSourcesSection({
   );
 }
 
-function BillingSection({ totalPoints, estimatedCost, ledger }) {
+function BillingSection({ totalPoints, estimatedCost, ledger, subData }) {
   return (
     <div className="space-y-8">
       <SectionCard className="px-10 py-8">
@@ -789,25 +797,24 @@ function BillingSection({ totalPoints, estimatedCost, ledger }) {
           Usage & Billing Ledger
         </h2>
         <p className="mt-2 text-[1.05rem] font-medium text-[#6A859B]">
-          Track ATS analysis activity through Career Sense Points. Estimated cost
-          is calculated using your rule: $1 = 1,00,000 Career Sense Points.
+          Track AI tokens remaining, subscription tier, and overall billing across ATS scans.
         </p>
 
         <div className="mt-8 grid gap-5 xl:grid-cols-3">
           <SmallMetricCard
             label="Current Balance"
             value={formatUsd(estimatedCost)}
-            subtext="Settled"
+            subtext="Recorded API Estimate"
           />
           <SmallMetricCard
-            label="Skills Points Earned"
-            value={formatPoints(totalPoints)}
-            subtext="Earned from ATS activity"
+            label="AI Tokens Remaining"
+            value={(subData?.tokensRemaining ?? 10000).toLocaleString()}
+            subtext="CareerSense Reverse Balance"
           />
           <SmallMetricCard
             label="Active Operational Tier"
-            value="Free Pool"
-            subtext="Quota Limited"
+            value={`${(subData?.plan || "free").toUpperCase()} Plan`}
+            subtext="CareerSense Subscription"
           />
         </div>
       </SectionCard>
@@ -945,6 +952,9 @@ function Dashboard() {
   const [profile, setProfile] = useState(() => readStoredProfile());
   const [isUploadingResume, setIsUploadingResume] = useState(false);
   const [isUploadingJd, setIsUploadingJd] = useState(false);
+  const { user } = useUser();
+  const [subData, setSubData] = useState({ plan: "free", tokensRemaining: 10000 });
+  const [serverLedgerLogs, setServerLedgerLogs] = useState([]);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const resumeInputRef = useRef(null);
   const jdInputRef = useRef(null);
@@ -953,22 +963,36 @@ function Dashboard() {
   const activeSectionMeta =
     SECTION_ITEMS.find((item) => item.id === activeSection) || SECTION_ITEMS[0];
 
-  const [serverLedgerLogs, setServerLedgerLogs] = useState([]);
+  useEffect(() => {
+    if (!user?.id) return;
+    const fetchSub = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE_URL || "https://server.datasenseai.com";
+        const backendUrl = apiBase.replace(/\/careersense\/ats\/?$/, "");
+        const res = await fetch(`${backendUrl}/careersense/subscription/status?clerkId=${user.id}`);
+        const data = await res.json();
+        if (data.success) {
+          setSubData({ plan: data.plan || "free", tokensRemaining: data.tokensRemaining ?? 10000 });
+        }
+
+        const ledgerRes = await fetch(`${backendUrl}/careersense/subscription/ledger?clerkId=${user.id}`);
+        if (ledgerRes.ok) {
+          const ledgerData = await ledgerRes.json();
+          if (ledgerData.ledger && Array.isArray(ledgerData.ledger)) {
+            setServerLedgerLogs(ledgerData.ledger);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching subscription/ledger in Dashboard:", err);
+      }
+    };
+    fetchSub();
+  }, [user?.id]);
 
   const loadWorkspace = async () => {
     setStatus("loading");
     setError("");
     try {
-      try {
-        const apiBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE_URL || "https://server.datasenseai.com";
-        const ledgerRes = await apiClient.get(`${apiBase}/careersense/subscription/ledger`);
-        if (ledgerRes.data && ledgerRes.data.ledger) {
-          setServerLedgerLogs(ledgerRes.data.ledger);
-        }
-      } catch (lErr) {
-        console.warn("Could not load server token ledger:", lErr);
-      }
-
       const [resumeResult, reportResult, jdResult] = await Promise.allSettled([
         withTimeout(getResumes()),
         withTimeout(getSavedReports()),
@@ -1039,16 +1063,30 @@ function Dashboard() {
 
   const ledger = useMemo(() => {
     if (serverLedgerLogs.length > 0) {
-      return serverLedgerLogs
-        .filter(log => log.amount < 0 && (log.serviceId === 'ats_resume_scan' || log.serviceId === 'ATS Report' || log.serviceId === 'career_tool'))
-        .map(log => ({
-          id: log._id,
-          operation: "ATS Report",
-          resource: "Resume Analysis",
-          timestamp: log.createdAt,
-          units: Math.abs(log.amount),
-          detail: "Saved ATS report generated from resume analysis"
-        }));
+      const atsLogs = serverLedgerLogs
+        .filter(log => log.amount < 0 && (
+          !log.serviceId || 
+          log.serviceId.toLowerCase().includes("ats") || 
+          log.serviceId === "career_tool"
+        ));
+
+      if (atsLogs.length > 0) {
+        return atsLogs.map((log, index) => {
+          const matchedReport = reports[index] || reports.find(r => Math.abs(new Date(r.created_at).getTime() - new Date(log.createdAt).getTime()) < 300000);
+          const resourceName = matchedReport
+            ? (matchedReport.candidate_name || matchedReport.resume_file_name)
+            : (log.metadata?.resume_name || log.metadata?.fileName || (reports[0]?.resume_file_name) || "Resume Analysis");
+
+          return {
+            id: log._id || `log-${index}`,
+            operation: (matchedReport?.has_job_description || log.description?.includes("JD")) ? "ATS + JD Report" : "ATS Report",
+            resource: resourceName,
+            timestamp: log.createdAt,
+            units: Math.abs(log.amount),
+            detail: log.description || (matchedReport?.has_job_description ? "Saved ATS report with job description alignment" : "Saved ATS report generated from resume analysis")
+          };
+        });
+      }
     }
 
     const reportEntries = reports.map((report) => ({
@@ -1081,7 +1119,7 @@ function Dashboard() {
     return [...reportEntries, ...resumeEntries, ...jdEntries].sort(
       (left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime()
     );
-  }, [jobDescriptions, reports, resumes]);
+  }, [serverLedgerLogs, reports, resumes, jobDescriptions]);
 
   const totalPoints = useMemo(
     () => ledger.reduce((total, item) => total + item.units, 0),
@@ -1304,8 +1342,8 @@ function Dashboard() {
                   {/* Footer space inside drawer (points & estimation) */}
                   <div className="border-t border-[#D7E3EC] pt-4 mt-auto space-y-2">
                     <div className="flex items-center justify-between rounded-xl border border-[#D7E3EC] bg-slate-50 px-3 py-2 text-[11px] font-bold text-[#6B88A0]">
-                      <span className="flex items-center gap-1.5"><Bolt className="h-3.5 w-3.5" /> Points Used</span>
-                      <span className="text-[#2F4054]">{formatPoints(totalPoints)}</span>
+                      <span className="flex items-center gap-1.5"><Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" /> AI Tokens Remaining</span>
+                      <span className="text-[#2F4054]">{(subData.tokensRemaining ?? 10000).toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between rounded-xl border border-[#D7E3EC] bg-slate-50 px-3 py-2 text-[11px] font-bold text-[#6B88A0]">
                       <span className="flex items-center gap-1.5"><Gauge className="h-3.5 w-3.5" /> Cost</span>
@@ -1330,6 +1368,7 @@ function Dashboard() {
                 subtitle={sectionSubtitleMap[activeSection]}
                 totalPoints={totalPoints}
                 estimatedCost={estimatedCost}
+                subData={subData}
                 onStartBuilder={() => navigate("/check-ats")}
                 onOpenMobileNav={() => setIsMobileNavOpen(true)}
               />
@@ -1375,6 +1414,7 @@ function Dashboard() {
                         totalPoints={totalPoints}
                         estimatedCost={estimatedCost}
                         ledger={ledger}
+                        subData={subData}
                       />
                     ) : null}
 

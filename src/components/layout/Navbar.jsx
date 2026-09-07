@@ -2,7 +2,6 @@ import React from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
-  CircleHelp,
   ChevronRight,
   Check,
   FileText,
@@ -13,25 +12,57 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { SignedIn, SignedOut, SignInButton, useAuth } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, SignInButton, useAuth, useUser } from "@clerk/clerk-react";
 import useResumeStore from "../../store/useResumeStore";
 import colorLogo from "../../assets/logos/BlueLogo.png";
 import apiClient from "../../services/apiClient";
-import TokenBadgeWidget from "../common/TokenBadgeWidget";
 import CustomUserButton from "../common/CustomUserButton";
 
 function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { userId } = useAuth();
+  const { user } = useUser();
   const isLandingPage = location.pathname === "/";
   const [isMobileNavOpen, setIsMobileNavOpen] = React.useState(false);
+  const [subData, setSubData] = React.useState({ plan: "free", tokensRemaining: 10000 });
 
   const currentResume = useResumeStore((state) => state.currentResume);
   const isResumeJdFlow = !!(currentResume?.latestAnalysis?.jdText || location.pathname.includes("resume-jd"));
 
   const [totalPoints, setTotalPoints] = React.useState(0);
   const [estimatedCost, setEstimatedCost] = React.useState(0);
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+    const fetchSub = async () => {
+      try {
+        const apiBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE_URL || "https://server.datasenseai.com";
+        const backendUrl = apiBase.replace(/\/careersense\/ats\/?$/, "");
+        const res = await fetch(`${backendUrl}/careersense/subscription/status?clerkId=${user.id}`);
+        const data = await res.json();
+        if (data.success) {
+          setSubData({ plan: data.plan || "free", tokensRemaining: data.tokensRemaining ?? 10000 });
+        }
+
+        const ledgerRes = await fetch(`${backendUrl}/careersense/subscription/ledger?clerkId=${user.id}`);
+        if (ledgerRes.ok) {
+          const ledgerData = await ledgerRes.json();
+          if (ledgerData.ledger && Array.isArray(ledgerData.ledger) && ledgerData.ledger.length > 0) {
+            const atsLogs = ledgerData.ledger.filter(log => log.amount < 0 && (!log.serviceId || log.serviceId.includes("ats") || log.serviceId === "career_tool"));
+            if (atsLogs.length > 0) {
+              const totalPts = atsLogs.reduce((sum, log) => sum + Math.abs(log.amount), 0);
+              setTotalPoints(totalPts);
+              setEstimatedCost(totalPts / 100000);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching subscription in Navbar:", err);
+      }
+    };
+    fetchSub();
+  }, [user?.id]);
 
   React.useEffect(() => {
     let active = true;
@@ -163,8 +194,8 @@ function Navbar() {
           <Star className="h-3.5 w-3.5" fill="currentColor" />
         </div>
         <div className="flex flex-col text-left leading-none">
-          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 leading-tight">CS Points Used</p>
-          <p className="text-xs font-black text-slate-900 leading-none mt-0.5">{new Intl.NumberFormat().format(totalPoints)}</p>
+          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 leading-tight">AI Tokens Remaining</p>
+          <p className="text-xs font-black text-slate-900 leading-none mt-0.5">{(subData.tokensRemaining ?? 10000).toLocaleString()}</p>
         </div>
       </div>
       <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 shadow-2xs">
@@ -249,19 +280,11 @@ function Navbar() {
           </React.Fragment>
         );
       })}
-
-      <div className="ml-1 hidden items-center gap-1.5 rounded-full px-2 py-1.5 text-[#6B87A0] xl:flex">
-        <CircleHelp className="h-4 w-4" />
-        <span className="whitespace-nowrap text-[13px] font-black tracking-tight">
-          Help
-        </span>
-      </div>
     </nav>
   );
 
   const InternalActions = () => (
     <div className="flex shrink-0 items-center gap-2">
-      <TokenBadgeWidget isLightTheme={true} />
       <InternalUsagePill />
 
       <Link to="/dashboard">
@@ -456,8 +479,8 @@ function Navbar() {
                     {/* Points & Bill for Landing Page logged in mobile view */}
                     <div className="flex flex-col gap-2 rounded-xl bg-white/70 p-2.5 border border-[#CFE0EC]/40 mb-2 font-bold">
                       <div className="flex items-center justify-between text-xs text-[#6B87A0]">
-                        <span>Points Available</span>
-                        <span className="text-sm font-black text-[#2F4054]">{new Intl.NumberFormat().format(totalPoints)}</span>
+                        <span>AI Tokens Remaining</span>
+                        <span className="text-sm font-black text-[#2F4054]">{(subData.tokensRemaining ?? 10000).toLocaleString()}</span>
                       </div>
                       <div className="h-px bg-slate-100" />
                       <div className="flex items-center justify-between text-xs text-[#6B87A0]">
@@ -506,8 +529,8 @@ function Navbar() {
                 {/* Metrics */}
                 <div className="flex flex-col gap-2 rounded-xl bg-white/70 p-2.5 border border-[#CFE0EC]/40">
                   <div className="flex items-center justify-between text-xs font-bold text-[#6B87A0]">
-                    <span>Points Available</span>
-                    <span className="text-sm font-black text-[#2F4054]">{new Intl.NumberFormat().format(totalPoints)}</span>
+                    <span>AI Tokens Remaining</span>
+                    <span className="text-sm font-black text-[#2F4054]">{(subData.tokensRemaining ?? 10000).toLocaleString()}</span>
                   </div>
                   <div className="h-px bg-slate-100" />
                   <div className="flex items-center justify-between text-xs font-bold text-[#6B87A0]">
