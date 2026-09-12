@@ -800,16 +800,21 @@ function BillingSection({ totalPoints, estimatedCost, ledger, subData }) {
           Track AI tokens remaining, subscription tier, and overall billing across ATS scans.
         </p>
 
-        <div className="mt-8 grid gap-5 xl:grid-cols-3">
-          <SmallMetricCard
-            label="Current Balance"
-            value={formatUsd(estimatedCost)}
-            subtext="Recorded API Estimate"
-          />
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <SmallMetricCard
             label="AI Tokens Remaining"
             value={(subData?.tokensRemaining ?? 10000).toLocaleString()}
             subtext="CareerSense Reverse Balance"
+          />
+          <SmallMetricCard
+            label="Lifetime tokens used"
+            value={(totalPoints || 0).toLocaleString()}
+            subtext="Total Platform Consumption"
+          />
+          <SmallMetricCard
+            label="Lifetime bills"
+            value={formatUsd(estimatedCost)}
+            subtext="Recorded Activity API Estimate"
           />
           <SmallMetricCard
             label="Active Operational Tier"
