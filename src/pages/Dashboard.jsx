@@ -23,6 +23,7 @@ import {
   UserRound,
   X,
   Star,
+  ArrowUpRight,
 } from "lucide-react";
 import { useUser } from "@clerk/clerk-react";
 import CustomUserButton from "../components/common/CustomUserButton";
@@ -37,6 +38,13 @@ import {
   getSavedReports,
 } from "../services/reportApi";
 import { getResumes, uploadResume } from "../services/resumeApi";
+import {
+  formatUsd,
+  isAtsCheckerLedgerService,
+  getActualReportTokens,
+  estimateResumePoints,
+  estimateJdPoints,
+} from "../services/subscriptionService";
 
 const SECTION_ITEMS = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -116,29 +124,8 @@ function formatShortDate(value) {
   });
 }
 
-function getActualReportTokens(report) {
-  if (report.tokens_cost || report.careerPoints || report.total_tokens || report.tokensCost) {
-    return report.tokens_cost || report.careerPoints || report.total_tokens || report.tokensCost;
-  }
-  const base = report.has_job_description ? 1825 : 1350;
-  const scoreBonus = Math.round((report.overall_score || 0) * 4.75);
-  return base + scoreBonus;
-}
-
-function estimateResumePoints() {
-  return 180;
-}
-
-function estimateJdPoints() {
-  return 95;
-}
-
 function formatPoints(value) {
   return new Intl.NumberFormat().format(Math.max(0, Math.round(value || 0)));
-}
-
-function formatUsd(value) {
-  return `$${Number(value || 0).toFixed(4)}`;
 }
 
 function withTimeout(promise, timeoutMs = 20000) {
@@ -162,16 +149,31 @@ function SectionCard({ children, className = "" }) {
   );
 }
 
-function SmallMetricCard({ label, value, subtext }) {
+function SmallMetricCard({ label, value, subtext, href }) {
   return (
-    <div className="rounded-[28px] border border-[#D5E2EC] bg-white/82 p-6 shadow-[0_18px_34px_rgba(21,46,84,0.06)]">
-      <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#6B88A0]">
-        {label}
-      </p>
-      <p className="mt-4 text-[3rem] font-black leading-none tracking-[-0.05em] text-[#2F4054]">
-        {value}
-      </p>
-      <p className="mt-3 text-base font-medium text-[#6A859B]">{subtext}</p>
+    <div className="relative flex flex-col justify-between rounded-[28px] border border-[#D5E2EC] bg-white/82 p-6 shadow-[0_18px_34px_rgba(21,46,84,0.06)]">
+      <div>
+        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#6B88A0]">
+          {label}
+        </p>
+        <p className="mt-4 text-[3rem] font-black leading-none tracking-[-0.05em] text-[#2F4054]">
+          {value}
+        </p>
+        <p className="mt-3 text-base font-medium text-[#6A859B]">{subtext}</p>
+      </div>
+      {href && (
+        <div className="mt-4 flex justify-end">
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Upgrade Plan"
+            className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[#D5E2EC] bg-[#F4F8FA] text-[#2F4054] shadow-xs transition-all duration-200 hover:scale-105 hover:border-[#0E8BFF] hover:bg-[#0E8BFF] hover:text-white"
+          >
+            <ArrowUpRight className="h-4 w-4" />
+          </a>
+        </div>
+      )}
     </div>
   );
 }
@@ -282,7 +284,7 @@ function WorkspaceHeader({
               </div>
               <div className="flex flex-col text-left leading-none">
                 <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 leading-tight">AI Tokens Remaining</p>
-                <p className="text-xs font-black text-slate-900 leading-none mt-0.5">{(subData?.tokensRemaining ?? 10000).toLocaleString()}</p>
+                <p className="text-xs font-black text-slate-900 leading-none mt-0.5">{(subData?.tokensRemaining ?? 30000).toLocaleString()}</p>
               </div>
             </div>
             <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 shadow-2xs">
@@ -803,7 +805,7 @@ function BillingSection({ totalPoints, estimatedCost, ledger, subData }) {
         <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <SmallMetricCard
             label="AI Tokens Remaining"
-            value={(subData?.tokensRemaining ?? 10000).toLocaleString()}
+            value={(subData?.tokensRemaining ?? 30000).toLocaleString()}
             subtext="CareerSense Reverse Balance"
           />
           <SmallMetricCard
@@ -814,12 +816,13 @@ function BillingSection({ totalPoints, estimatedCost, ledger, subData }) {
           <SmallMetricCard
             label="Lifetime bills"
             value={formatUsd(estimatedCost)}
-            subtext="Recorded Activity API Estimate"
+            subtext="Bills are managed by careersenseAi, you dont need to pay"
           />
           <SmallMetricCard
             label="Active Operational Tier"
             value={`${(subData?.plan || "free").toUpperCase()} Plan`}
             subtext="CareerSense Subscription"
+            href="https://careersenseai.com/pricing"
           />
         </div>
       </SectionCard>
@@ -958,7 +961,7 @@ function Dashboard() {
   const [isUploadingResume, setIsUploadingResume] = useState(false);
   const [isUploadingJd, setIsUploadingJd] = useState(false);
   const { user } = useUser();
-  const [subData, setSubData] = useState({ plan: "free", tokensRemaining: 10000 });
+  const [subData, setSubData] = useState({ plan: "free", tokensRemaining: 30000 });
   const [serverLedgerLogs, setServerLedgerLogs] = useState([]);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const resumeInputRef = useRef(null);
@@ -977,7 +980,7 @@ function Dashboard() {
         const res = await fetch(`${backendUrl}/careersense/subscription/status?clerkId=${user.id}`);
         const data = await res.json();
         if (data.success) {
-          setSubData({ plan: data.plan || "free", tokensRemaining: data.tokensRemaining ?? 10000 });
+          setSubData({ plan: data.plan || "free", tokensRemaining: data.tokensRemaining ?? 30000 });
         }
 
         const ledgerRes = await fetch(`${backendUrl}/careersense/subscription/ledger?clerkId=${user.id}`);
@@ -1069,11 +1072,7 @@ function Dashboard() {
   const ledger = useMemo(() => {
     if (serverLedgerLogs.length > 0) {
       const atsLogs = serverLedgerLogs
-        .filter(log => log.amount < 0 && (
-          !log.serviceId || 
-          log.serviceId.toLowerCase().includes("ats") || 
-          log.serviceId === "career_tool"
-        ));
+        .filter(log => log.amount < 0 && isAtsCheckerLedgerService(log.serviceId));
 
       if (atsLogs.length > 0) {
         return atsLogs.map((log, index) => {
@@ -1131,7 +1130,7 @@ function Dashboard() {
     [ledger]
   );
 
-  const estimatedCost = totalPoints / 100000;
+  const estimatedCost = totalPoints / 20000;
 
   const profileCompletion = useMemo(() => {
     const filled = Object.values(profile).filter(
@@ -1348,7 +1347,7 @@ function Dashboard() {
                   <div className="border-t border-[#D7E3EC] pt-4 mt-auto space-y-2">
                     <div className="flex items-center justify-between rounded-xl border border-[#D7E3EC] bg-slate-50 px-3 py-2 text-[11px] font-bold text-[#6B88A0]">
                       <span className="flex items-center gap-1.5"><Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" /> AI Tokens Remaining</span>
-                      <span className="text-[#2F4054]">{(subData.tokensRemaining ?? 10000).toLocaleString()}</span>
+                      <span className="text-[#2F4054]">{(subData.tokensRemaining ?? 30000).toLocaleString()}</span>
                     </div>
                     <div className="flex items-center justify-between rounded-xl border border-[#D7E3EC] bg-slate-50 px-3 py-2 text-[11px] font-bold text-[#6B88A0]">
                       <span className="flex items-center gap-1.5"><Gauge className="h-3.5 w-3.5" /> Cost</span>

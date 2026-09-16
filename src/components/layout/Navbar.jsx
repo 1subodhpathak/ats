@@ -18,6 +18,8 @@ import colorLogo from "../../assets/logos/BlueLogo.png";
 import apiClient from "../../services/apiClient";
 import CustomUserButton from "../common/CustomUserButton";
 
+import { calculateAtsUsage } from "../../services/subscriptionService";
+
 function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -25,7 +27,7 @@ function Navbar() {
   const { user } = useUser();
   const isLandingPage = location.pathname === "/";
   const [isMobileNavOpen, setIsMobileNavOpen] = React.useState(false);
-  const [subData, setSubData] = React.useState({ plan: "free", tokensRemaining: 10000 });
+  const [subData, setSubData] = React.useState({ plan: "free", tokensRemaining: 30000 });
 
   const currentResume = useResumeStore((state) => state.currentResume);
   const isResumeJdFlow = !!(currentResume?.latestAnalysis?.jdText || location.pathname.includes("resume-jd"));
@@ -34,84 +36,68 @@ function Navbar() {
   const [estimatedCost, setEstimatedCost] = React.useState(0);
 
   React.useEffect(() => {
-    if (!user?.id) return;
-    const fetchSub = async () => {
+    let active = true;
+    const fetchAllData = async () => {
       try {
         const apiBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE_URL || "https://server.datasenseai.com";
         const backendUrl = apiBase.replace(/\/careersense\/ats\/?$/, "");
-        const res = await fetch(`${backendUrl}/careersense/subscription/status?clerkId=${user.id}`);
-        const data = await res.json();
-        if (data.success) {
-          setSubData({ plan: data.plan || "free", tokensRemaining: data.tokensRemaining ?? 10000 });
+
+        const promises = [
+          apiClient.get("/all").catch(() => ({ data: {} })),
+          apiClient.get("/job-descriptions").catch(() => ({ data: {} })),
+        ];
+
+        if (user?.id) {
+          promises.push(
+            fetch(`${backendUrl}/careersense/subscription/status?clerkId=${user.id}`)
+              .then(r => r.json())
+              .catch(() => ({})),
+            fetch(`${backendUrl}/careersense/subscription/ledger?clerkId=${user.id}`)
+              .then(r => r.json())
+              .catch(() => ({}))
+          );
         }
 
-        const ledgerRes = await fetch(`${backendUrl}/careersense/subscription/ledger?clerkId=${user.id}`);
-        if (ledgerRes.ok) {
-          const ledgerData = await ledgerRes.json();
-          if (ledgerData.ledger && Array.isArray(ledgerData.ledger) && ledgerData.ledger.length > 0) {
-            const atsLogs = ledgerData.ledger.filter(log => log.amount < 0 && (!log.serviceId || log.serviceId.includes("ats") || log.serviceId === "career_tool"));
-            if (atsLogs.length > 0) {
-              const totalPts = atsLogs.reduce((sum, log) => sum + Math.abs(log.amount), 0);
-              setTotalPoints(totalPts);
-              setEstimatedCost(totalPts / 100000);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("Error fetching subscription in Navbar:", err);
-      }
-    };
-    fetchSub();
-  }, [user?.id]);
-
-  React.useEffect(() => {
-    let active = true;
-    async function fetchUsage() {
-      try {
-        const [resumesRes, jdsRes] = await Promise.all([
-          apiClient.get("/all"),
-          apiClient.get("/job-descriptions")
-        ]);
+        const results = await Promise.all(promises);
         if (!active) return;
 
-        const resumes = resumesRes.data.storedResumes || [];
-        const jds = jdsRes.data.storedJobDescriptions || [];
+        const resumesRes = results[0];
+        const jdsRes = results[1];
+        const subRes = user?.id ? results[2] : null;
+        const ledgerRes = user?.id ? results[3] : null;
 
-        // Adapt resumes to reports
-        const reports = resumes
+        if (subRes?.success) {
+          setSubData({ plan: subRes.plan || "free", tokensRemaining: subRes.tokensRemaining ?? 30000 });
+        }
+
+        const storedResumes = resumesRes?.data?.storedResumes || [];
+        const storedJds = jdsRes?.data?.storedJobDescriptions || [];
+        const serverLedger = Array.isArray(ledgerRes?.ledger) ? ledgerRes.ledger : [];
+
+        const reports = storedResumes
           .filter((r) => r.latestAnalysis && r.latestAnalysis.overall_score)
-          .map((resume) => ({
-            report_id: resume.resume_id,
-            overall_score: resume.latestAnalysis.overall_score,
-            has_job_description: !!resume.latestAnalysis.jdText,
+          .map((r) => ({
+            report_id: r.resume_id,
+            overall_score: r.latestAnalysis.overall_score,
+            has_job_description: !!r.latestAnalysis.jdText,
+            total_tokens: r.latestAnalysis.total_tokens || r.latestAnalysis.careerPoints || r.latestAnalysis.tokensCost || 0
           }));
 
-        // Estimate units
-        const reportUnits = reports.reduce((total, r) => {
-          const base = r.has_job_description ? 1825 : 1350;
-          const scoreBonus = Math.round((r.overall_score || 0) * 4.75);
-          return total + base + scoreBonus;
-        }, 0);
-
-        const resumeUnits = resumes.length * 180;
-        const jdUnits = jds.length * 95;
-
-        const sum = reportUnits + resumeUnits + jdUnits;
-        setTotalPoints(sum);
-        setEstimatedCost(sum / 100000);
+        const usage = calculateAtsUsage(serverLedger, reports, storedResumes, storedJds);
+        setTotalPoints(usage.totalPoints);
+        setEstimatedCost(usage.estimatedCost);
       } catch (err) {
         console.error("Navbar failed to fetch usage metrics:", err);
       }
-    }
+    };
 
-    // Only fetch if authenticated
-    if (userId) {
-      fetchUsage();
+    if (userId || user?.id) {
+      fetchAllData();
     }
     return () => {
       active = false;
     };
-  }, [currentResume, userId]);
+  }, [currentResume, userId, user?.id]);
 
   const workflowSteps = isResumeJdFlow
     ? [
@@ -195,7 +181,7 @@ function Navbar() {
         </div>
         <div className="flex flex-col text-left leading-none">
           <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 leading-tight">AI Tokens Remaining</p>
-          <p className="text-xs font-black text-slate-900 leading-none mt-0.5">{(subData.tokensRemaining ?? 10000).toLocaleString()}</p>
+          <p className="text-xs font-black text-slate-900 leading-none mt-0.5">{(subData.tokensRemaining ?? 30000).toLocaleString()}</p>
         </div>
       </div>
       <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 shadow-2xs">
@@ -480,7 +466,7 @@ function Navbar() {
                     <div className="flex flex-col gap-2 rounded-xl bg-white/70 p-2.5 border border-[#CFE0EC]/40 mb-2 font-bold">
                       <div className="flex items-center justify-between text-xs text-[#6B87A0]">
                         <span>AI Tokens Remaining</span>
-                        <span className="text-sm font-black text-[#2F4054]">{(subData.tokensRemaining ?? 10000).toLocaleString()}</span>
+                        <span className="text-sm font-black text-[#2F4054]">{(subData.tokensRemaining ?? 30000).toLocaleString()}</span>
                       </div>
                       <div className="h-px bg-slate-100" />
                       <div className="flex items-center justify-between text-xs text-[#6B87A0]">
@@ -530,7 +516,7 @@ function Navbar() {
                 <div className="flex flex-col gap-2 rounded-xl bg-white/70 p-2.5 border border-[#CFE0EC]/40">
                   <div className="flex items-center justify-between text-xs font-bold text-[#6B87A0]">
                     <span>AI Tokens Remaining</span>
-                    <span className="text-sm font-black text-[#2F4054]">{(subData.tokensRemaining ?? 10000).toLocaleString()}</span>
+                    <span className="text-sm font-black text-[#2F4054]">{(subData.tokensRemaining ?? 30000).toLocaleString()}</span>
                   </div>
                   <div className="h-px bg-slate-100" />
                   <div className="flex items-center justify-between text-xs font-bold text-[#6B87A0]">
