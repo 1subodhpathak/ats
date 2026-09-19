@@ -162,6 +162,8 @@ function Repository() {
                       Resume file: {report.resume_file_name}
                     </p>
                     <p className="text-xs uppercase tracking-[0.15em] text-slate-500">
+                      {report.report_level === "basic" ? "Basic" : "Detailed"}
+                      {" · "}
                       {report.report_type === "resume_jd"
                         ? "Resume + JD"
                         : "Resume only"}{" "}
@@ -180,7 +182,7 @@ function Repository() {
                     ) : null}
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    <Link to={`/repository/report/${report.report_id}`}>
+                    <Link to={report.report_level === "basic" ? `/reports/basic/${report.report_id}` : `/repository/report/${report.report_id}`}>
                       <Button variant="outline">
                         <FolderOpen className="mr-2 h-4 w-4" />
                         View Report
@@ -190,7 +192,9 @@ function Repository() {
                       variant="outline"
                       onClick={() =>
                         window.open(
-                          getSavedReportPdfUrl(report.report_id),
+                          report.report_level === "basic"
+                            ? `/reports/basic/${report.report_id}?printMode=1&autoPrint=1`
+                            : getSavedReportPdfUrl(report.report_id),
                           "_blank",
                           "noopener,noreferrer"
                         )

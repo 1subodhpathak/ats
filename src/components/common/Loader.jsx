@@ -1,8 +1,17 @@
-function Loader({ label = "Loading..." }) {
+function Loader({ label = "Loading...", className = "" }) {
   return (
-    <div className="flex items-center gap-3 text-sm text-slate-500">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-sky-600" />
-      <span>{label}</span>
+    <div
+      role="status"
+      aria-label={label}
+      className={`flex items-center justify-center p-6 ${className}`}
+    >
+      <span
+        aria-hidden="true"
+        className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#F7E8C4]"
+      >
+        <span className="absolute inset-[4px] animate-spin rounded-full border-[3px] border-[#D5E2E8] border-r-[#C98A1D] border-t-[#083F5E] motion-reduce:animate-none" />
+        <span className="h-2 w-2 rounded-full bg-[#C98A1D]" />
+      </span>
     </div>
   );
 }

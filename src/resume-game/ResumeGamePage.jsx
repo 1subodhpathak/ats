@@ -1,252 +1,814 @@
-// import { ArrowRight, Play, Sparkles } from "lucide-react";
-// import { Link } from "react-router-dom";
-// import { useState } from "react";
-
-// import backgroundMusic from "./Background.mp3";
-// import ResumeBuilderGame from "./ResumeBuilderGame";
-
-// function ResumeGameEntry({ onStart }) {
-//   return (
-//     <div className="relative min-h-screen overflow-hidden bg-[#040814] text-[#dff7ff]">
-//       <audio autoPlay loop src={backgroundMusic} className="hidden" />
-//       <video
-//         className="absolute inset-0 h-full w-full object-cover"
-//         autoPlay
-//         muted
-//         loop
-//         playsInline
-//       >
-//         <source src="/Background.mp4" type="video/mp4" />
-//       </video>
-//       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(7,16,33,0.18),rgba(4,8,20,0.76)_58%,rgba(3,6,15,0.94)_100%)]" />
-//       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(4,8,20,0.54),rgba(4,8,20,0.9))]" />
-
-//       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1500px] flex-col px-6 py-8 lg:px-10">
-//         <header className="flex items-center justify-between gap-4">
-//           <Link
-//             to="/"
-//             className="inline-flex items-center gap-2 text-sm font-bold uppercase tracking-[0.24em] text-cyan-200/90 transition hover:text-white"
-//           >
-//             <Sparkles className="h-4 w-4" />
-//             Resume Quest
-//           </Link>
-
-//           <Link
-//             to="/"
-//             className="inline-flex items-center rounded-full border border-cyan-300/35 bg-slate-950/45 px-5 py-2 text-xs font-bold uppercase tracking-[0.24em] text-cyan-100 transition hover:border-cyan-200/60 hover:bg-slate-900/65 hover:text-white"
-//           >
-//             Home
-//           </Link>
-//         </header>
-
-//         <main className="flex flex-1 items-center justify-center">
-//           <div className="mx-auto flex max-w-5xl flex-col items-center text-center">
-//             <div className="space-y-6">
-//               <div className="inline-flex items-center  px-6 py-2 text-sm font-bold uppercase tracking-[0.28em]">
-//                 Hero Section
-//               </div>
-
-//               <h1 className="text-5xl font-black uppercase tracking-[0.08em] text-cyan-50 drop-shadow-[0_0_18px_rgba(125,211,252,0.45)] sm:text-6xl lg:text-5xl">
-//                 Build. Learn. Conquer.
-//               </h1>
-
-//               <p className="mx-auto max-w-4xl text-xl font-medium uppercase tracking-[0.14em] text-cyan-100/85 sm:text-2xl lg:text-4xl">
-//                 Master the art of resume crafting through gameplay.
-//               </p>
-
-//               <p className="mx-auto max-w-3xl text-base font-medium uppercase tracking-[0.18em] text-cyan-100/70 sm:text-lg">
-//                 Drag and drop your way to the perfect job application.
-//               </p>
-//             </div>
-
-//             <div className="mt-12 flex flex-col items-center gap-4">
-//               <p className="text-xl font-medium text-white/90">See how it works</p>
-//               <button
-//                 type="button"
-//                 onClick={onStart}
-//                 className="group inline-flex items-center gap-4 rounded-[1.35rem] border border-cyan-300/50 bg-[linear-gradient(90deg,rgba(37,99,235,0.86),rgba(14,165,233,0.66))] px-8 py-5 text-2xl font-black uppercase tracking-[0.14em] text-white shadow-[0_0_22px_rgba(34,211,238,0.35),0_0_30px_rgba(251,146,60,0.25)] transition hover:scale-[1.01]"
-//               >
-//                 <Play className="h-6 w-6 fill-white" />
-//                 Play With Resume
-//                 <ArrowRight className="h-6 w-6 transition group-hover:translate-x-1" />
-//               </button>
-//             </div>
-//           </div>
-//         </main>
-//       </div>
-//     </div>
-//   );
-// }
-
-// function ResumeGamePage() {
-//   const [started, setStarted] = useState(false);
-
-//   if (!started) {
-//     return <ResumeGameEntry onStart={() => setStarted(true)} />;
-//   }
-
-//   return <ResumeBuilderGame onBackToEntry={() => setStarted(false)} />;
-// }
-
-// export default ResumeGamePage;
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+
 import ResumeGameEntry from "./ResumeGameEntry";
 import ResumeBuilderGame from "./ResumeBuilderGame";
 
-export default function ResumeGamePage() {
-  const [phase, setPhase] = useState("idle"); // 'idle' -> 'unlocking' -> 'opening' -> 'done' -> 'closing'
+class ResumeGameErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
 
-  const handleStart = () => {
-    if (phase !== "idle") return;
-    
-    // 1. Fade Entry UI, start rumble and lock animation
-    setPhase("unlocking");
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
 
-    // 2. Break the seal, flash light, slide doors
-    setTimeout(() => {
-      setPhase("opening");
-      
-      // 3. Complete transition, allow interaction
-      setTimeout(() => {
-        setPhase("done");
-      }, 1600); 
-    }, 1000); // 1-second suspense build-up
-  };
+  componentDidCatch(error, errorInfo) {
+    console.error("Resume Quest rendering failed:", error, errorInfo);
+  }
 
-  const handleBackToEntry = () => {
-    if (phase !== "done") return;
-    setPhase("closing");
-    setTimeout(() => setPhase("idle"), 1200);
-  };
+  render() {
+    if (!this.state.error) return this.props.children;
+
+    return (
+      <div className="flex h-full min-h-[700px] items-center justify-center bg-[#061D2F] px-5 text-center">
+        <div className="w-full max-w-md rounded-3xl border border-[#D4A13D]/60 bg-[#0B3858] p-8 text-white shadow-2xl">
+          <h1 className="text-2xl font-black">Resume Quest needs to reload</h1>
+          <p className="mt-3 text-sm leading-6 text-[#C8D9E2]">
+            Your completed resumes and total score are safely stored. Reload the game to continue.
+          </p>
+          {import.meta.env.DEV ? (
+            <p className="mt-3 rounded-xl bg-[#062A42] px-3 py-2 text-left text-xs leading-5 text-[#F4C8C3]">
+              {this.state.error?.message || "Unknown Resume Quest error"}
+            </p>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-6 min-h-11 w-full rounded-xl bg-[#F0C15B] px-5 text-sm font-black text-[#083650] transition hover:bg-[#FFD77E]"
+          >
+            Reload Resume Quest
+          </button>
+        </div>
+      </div>
+    );
+  }
+}
+
+/* =========================================================
+   VAULT DOOR
+========================================================= */
+
+function VaultDoor({
+  side,
+  phase,
+}) {
+  const isLeft = side === "left";
 
   const isUnlocking = phase === "unlocking";
   const isOpening = phase === "opening";
   const isClosing = phase === "closing";
-  const isDone = phase === "done";
 
-  // Framer Motion variants for the heavy door rumble
-  const rumbleAnimation = isUnlocking ? {
-    x: [0, -2, 2, -1, 1, -2, 2, 0],
-    y: [0, 1, -1, 2, -2, 1, -1, 0],
-    transition: { duration: 0.4, repeat: Infinity, ease: "linear" }
-  } : { x: 0, y: 0 };
+  const rumble = isUnlocking
+    ? {
+        x: [0, -1.5, 1.5, -1, 1, 0],
+        y: [0, 1, -1, 1, -1, 0],
+        transition: {
+          duration: 0.28,
+          repeat: Infinity,
+          ease: "linear",
+        },
+      }
+    : {
+        x: 0,
+        y: 0,
+      };
 
-  // Door slide variants
-  const leftDoorVariants = {
-    closed: { x: "0%", transition: { duration: 1, ease: [0.8, 0, 0.2, 1] } },
-    open: { x: "-100%", transition: { duration: 1.2, ease: [0.8, 0, 0.2, 1] } }
-  };
+  const doorVariants = {
+    framed: {
+      x: 0,
+      transition: {
+        duration: isClosing ? 1.05 : 0.4,
+        ease: [0.72, 0, 0.18, 1],
+      },
+    },
 
-  const rightDoorVariants = {
-    closed: { x: "0%", transition: { duration: 1, ease: [0.8, 0, 0.2, 1] } },
-    open: { x: "100%", transition: { duration: 1.2, ease: [0.8, 0, 0.2, 1] } }
+    open: {
+      x: isLeft ? "-112%" : "112%",
+      transition: {
+        duration: 1.2,
+        ease: [0.76, 0, 0.18, 1],
+      },
+    },
   };
 
   return (
-    <div className="relative min-h-screen w-full bg-[#040814] overflow-hidden">
-      
-      {/* 🟢 BOTTOM LAYER: THE ACTUAL GAME CANVAS */}
-      <ResumeBuilderGame onBackToEntry={handleBackToEntry} />
+    <motion.div
+      variants={doorVariants}
+      initial={isClosing ? "open" : "framed"}
+      animate={isOpening ? "open" : "framed"}
+      className={`
+        pointer-events-none
+        absolute
+        bottom-0
+        top-0
+        z-30
+        w-[19vw]
+        min-w-[220px]
+        max-w-[320px]
 
-      {/* 🔴 TOP LAYER: THE GATEKEEPER OVERLAY */}
-      {!isDone && (
-        <div className="absolute inset-0 z-[9999] flex overflow-hidden pointer-events-none">
-          
-          {/* CENTRAL LIGHT BURST (Flashes exactly when doors part) */}
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ 
-              opacity: isOpening ? [0, 1, 0] : 0, 
-              scale: isOpening ? [0.8, 2, 3] : 0.8 
-            }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[30vw] h-[100vh] bg-[#E0C58F] blur-[100px] z-0 mix-blend-screen"
+        ${isLeft ? "left-0" : "right-0"}
+      `}
+    >
+      <motion.div
+        animate={rumble}
+        className="relative h-full w-full"
+      >
+        {/* =================================================
+            MAIN DOOR SHAPE
+        ================================================= */}
+
+        <div
+          className="
+            absolute
+            inset-0
+            overflow-hidden
+            bg-[linear-gradient(180deg,#12344D_0%,#08283E_45%,#061E31_100%)]
+            shadow-[0_0_55px_rgba(4,24,39,.42)]
+          "
+          style={{
+            clipPath: isLeft
+              ? "polygon(0 0,73% 0,73% 11%,88% 18%,88% 34%,97% 40%,97% 60%,88% 66%,88% 82%,73% 90%,73% 100%,0 100%)"
+              : "polygon(27% 0,100% 0,100% 100%,27% 100%,27% 90%,12% 82%,12% 66%,3% 60%,3% 40%,12% 34%,12% 18%,27% 11%)",
+          }}
+        >
+          {/* subtle material texture */}
+          <div
+            className="
+              absolute
+              inset-0
+              opacity-[0.22]
+              bg-[linear-gradient(rgba(255,255,255,.025)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)]
+              bg-[length:30px_30px]
+            "
           />
 
-          {/* GLOWING ENERGY SEAM */}
-          <div 
-            className={`absolute top-0 left-1/2 -translate-x-1/2 h-full bg-[#E0C58F] transition-all ease-in z-0 shadow-[0_0_80px_40px_rgba(224,197,143,0.55)] ${
-              isOpening ? 'w-[150vw] opacity-0 duration-700' : 'w-[2px] opacity-0 duration-300'
-            } ${isUnlocking ? 'opacity-100 shadow-[0_0_60px_20px_rgba(224,197,143,0.9)]' : ''}`}
+          <div
+            className={`
+              absolute
+              inset-y-0
+              w-[70%]
+              opacity-50
+
+              ${
+                isLeft
+                  ? "left-0 bg-[radial-gradient(circle_at_right,rgba(34,95,122,.30),transparent_70%)]"
+                  : "right-0 bg-[radial-gradient(circle_at_left,rgba(34,95,122,.30),transparent_70%)]"
+              }
+            `}
           />
 
-          {/* LEFT BLAST DOOR */}
-          <motion.div 
-            variants={leftDoorVariants}
-            initial="closed"
-            animate={isOpening ? "open" : "closed"}
-            className="absolute top-0 left-0 w-1/2 h-full bg-[linear-gradient(180deg,#12203d_0%,#0c1529_55%,#070c1a_100%)] border-r border-[#E0C58F]/50 shadow-[20px_0_60px_rgba(0,0,0,0.95)] z-10 flex justify-end items-center overflow-hidden"
-          >
-            <motion.div animate={rumbleAnimation} className="absolute inset-0 w-full h-full flex justify-end items-center">
-              {/* Textures */}
-              <div className="absolute inset-0 bg-[linear-gradient(rgba(245,240,233,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(245,240,233,0.02)_1px,transparent_1px)] bg-[length:32px_32px]" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(224,197,143,0.08),transparent_40%)]" />
-              
-              {/* Edge Highlighting */}
-              <div className="absolute right-0 w-[1px] h-full bg-gradient-to-b from-transparent via-[#E0C58F] to-transparent opacity-70" />
-              
-              {/* Left Half of Central Lock */}
-              <div className="relative translate-x-[50%] w-48 h-48 rounded-full border-4 border-[#E0C58F]/80 bg-[#0c1529] shadow-[0_0_30px_rgba(224,197,143,0.2)] flex items-center justify-center overflow-hidden">
-                <div className="absolute right-1/2 w-full h-full border-r border-[#E0C58F]/30 bg-[#16284c]/40" />
-                {/* Inner glowing core */}
-                <div className={`w-24 h-24 rounded-full bg-[#E0C58F]/10 blur-md transition-all duration-700 ${isUnlocking ? 'bg-[#E0C58F]/40 scale-125 blur-xl' : ''}`} />
-              </div>
-            </motion.div>
-          </motion.div>
+          {/* ===============================================
+              GOLD FRAME SVG
+          =============================================== */}
 
-          {/* RIGHT BLAST DOOR */}
-          <motion.div 
-            variants={rightDoorVariants}
-            initial="closed"
-            animate={isOpening ? "open" : "closed"}
-            className="absolute top-0 right-0 w-1/2 h-full bg-[linear-gradient(180deg,#12203d_0%,#0c1529_55%,#070c1a_100%)] border-l border-[#E0C58F]/50 shadow-[-20px_0_60px_rgba(0,0,0,0.95)] z-10 flex justify-start items-center overflow-hidden"
+          <svg
+            viewBox="0 0 300 900"
+            preserveAspectRatio="none"
+            className="
+              absolute
+              inset-0
+              h-full
+              w-full
+            "
           >
-            <motion.div animate={rumbleAnimation} className="absolute inset-0 w-full h-full flex justify-start items-center">
-              {/* Textures */}
-              <div className="absolute inset-0 bg-[linear-gradient(rgba(245,240,233,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(245,240,233,0.02)_1px,transparent_1px)] bg-[length:32px_32px]" />
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_right,rgba(224,197,143,0.08),transparent_40%)]" />
-              
-              {/* Edge Highlighting */}
-              <div className="absolute left-0 w-[1px] h-full bg-gradient-to-b from-transparent via-[#E0C58F] to-transparent opacity-70" />
-              
-              {/* Right Half of Central Lock */}
-              <div className="relative -translate-x-[50%] w-48 h-48 rounded-full border-4 border-[#E0C58F]/80 bg-[#0c1529] shadow-[0_0_30px_rgba(224,197,143,0.2)] flex items-center justify-center overflow-hidden">
-                <div className="absolute left-1/2 w-full h-full border-l border-[#E0C58F]/30 bg-[#16284c]/40" />
-                {/* Inner glowing core */}
-                <div className={`w-24 h-24 rounded-full bg-[#E0C58F]/10 blur-md transition-all duration-700 ${isUnlocking ? 'bg-[#E0C58F]/40 scale-125 blur-xl' : ''}`} />
-              </div>
-            </motion.div>
-          </motion.div>
-
-          {/* SPINNING LOCK RING (Only visible when doors are closed/unlocking) */}
-          <AnimatePresence>
-            {!isOpening && !isDone && (
-              <motion.div 
-                initial={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.5, transition: { duration: 0.4 } }}
-                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-56 h-56 z-20 pointer-events-none"
+            <defs>
+              <filter
+                id={`goldGlow-${side}`}
+                x="-100%"
+                y="-100%"
+                width="300%"
+                height="300%"
               >
-                <motion.div 
-                  animate={{ rotate: isUnlocking ? 180 : 0 }}
-                  transition={{ duration: 1, ease: "backInOut" }}
-                  className="w-full h-full rounded-full border-[3px] border-dashed border-[#E0C58F] opacity-80 shadow-[0_0_20px_rgba(224,197,143,0.4)]"
+                <feGaussianBlur
+                  stdDeviation={isUnlocking ? "9" : "5"}
+                  result="blur"
                 />
-              </motion.div>
+
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+
+            {isLeft ? (
+              <>
+                <path
+                  d="
+                    M218 0
+                    L218 96
+                    L264 160
+                    L264 300
+                    L290 360
+                    L290 540
+                    L264 600
+                    L264 740
+                    L218 804
+                    L218 900
+                  "
+                  fill="none"
+                  stroke="rgba(234,180,71,.28)"
+                  strokeWidth="18"
+                />
+
+                <path
+                  d="
+                    M218 0
+                    L218 96
+                    L264 160
+                    L264 300
+                    L290 360
+                    L290 540
+                    L264 600
+                    L264 740
+                    L218 804
+                    L218 900
+                  "
+                  fill="none"
+                  stroke="#E8B64E"
+                  strokeWidth={isUnlocking ? "6" : "4"}
+                  filter={`url(#goldGlow-${side})`}
+                />
+              </>
+            ) : (
+              <>
+                <path
+                  d="
+                    M82 0
+                    L82 96
+                    L36 160
+                    L36 300
+                    L10 360
+                    L10 540
+                    L36 600
+                    L36 740
+                    L82 804
+                    L82 900
+                  "
+                  fill="none"
+                  stroke="rgba(234,180,71,.28)"
+                  strokeWidth="18"
+                />
+
+                <path
+                  d="
+                    M82 0
+                    L82 96
+                    L36 160
+                    L36 300
+                    L10 360
+                    L10 540
+                    L36 600
+                    L36 740
+                    L82 804
+                    L82 900
+                  "
+                  fill="none"
+                  stroke="#E8B64E"
+                  strokeWidth={isUnlocking ? "6" : "4"}
+                  filter={`url(#goldGlow-${side})`}
+                />
+              </>
             )}
-          </AnimatePresence>
+          </svg>
 
-          {/* THE ENTRY PAGE UI (Fades out smoothly) */}
-          <div 
-            className={`absolute inset-0 z-50 pointer-events-auto transition-opacity duration-700 ${
-              phase === 'idle' ? 'opacity-100' : 'opacity-0 pointer-events-none'
-            }`}
+          {/* ===============================================
+              SIDE TEXT
+          =============================================== */}
+
+          <div
+            className={`
+              absolute
+              top-[37%]
+              z-20
+
+              ${isLeft ? "left-[15%]" : "right-[15%]"}
+            `}
           >
-            <ResumeGameEntry onStart={handleStart} />
-          </div>
+            <p
+              className="
+                text-center
+                text-[13px]
+                font-black
+                uppercase
+                leading-[1.65]
+                tracking-[0.35em]
+                text-[#E2B65B]
+              "
+            >
+              Your
+              <br />
+              Potential
+              <br />
+              Awaits
+            </p>
 
+            <div
+              className="
+                mx-auto
+                mt-5
+                h-[2px]
+                w-[38px]
+                bg-[#D79D2C]
+              "
+            />
+          </div>
         </div>
+
+        {/* =================================================
+            LOCK HALF
+        ================================================= */}
+
+        <div
+          className={`
+            absolute
+            top-1/2
+            z-40
+            h-[205px]
+            w-[205px]
+            -translate-y-1/2
+
+            ${isLeft ? "right-[-72px]" : "left-[-72px]"}
+          `}
+        >
+          {/* outer glow */}
+          <motion.div
+            animate={{
+              boxShadow: isUnlocking
+                ? [
+                    "0 0 20px rgba(231,181,80,.25)",
+                    "0 0 58px rgba(231,181,80,.95)",
+                    "0 0 20px rgba(231,181,80,.25)",
+                  ]
+                : "0 0 22px rgba(231,181,80,.18)",
+            }}
+            transition={{
+              duration: 0.65,
+              repeat: isUnlocking ? Infinity : 0,
+            }}
+            className="
+              absolute
+              inset-0
+              rounded-full
+              border-[3px]
+              border-[#C8963C]/70
+              bg-[#092B43]
+            "
+          />
+
+          {/* rotating outer ring */}
+          <motion.div
+            animate={{
+              rotate: isUnlocking
+                ? isLeft
+                  ? 145
+                  : -145
+                : 0,
+            }}
+            transition={{
+              duration: 0.9,
+              ease: [0.68, -0.35, 0.32, 1.25],
+            }}
+            className="
+              absolute
+              inset-[15px]
+              rounded-full
+              border-[2px]
+              border-[#E4B04C]/80
+            "
+          >
+            <span
+              className="
+                absolute
+                left-1/2
+                top-[-5px]
+                h-[10px]
+                w-[10px]
+                -translate-x-1/2
+                rounded-full
+                bg-[#F2C763]
+                shadow-[0_0_12px_rgba(242,199,99,.8)]
+              "
+            />
+
+            <span
+              className="
+                absolute
+                bottom-[-5px]
+                left-1/2
+                h-[10px]
+                w-[10px]
+                -translate-x-1/2
+                rounded-full
+                bg-[#F2C763]
+                shadow-[0_0_12px_rgba(242,199,99,.8)]
+              "
+            />
+          </motion.div>
+
+          {/* middle ring */}
+          <motion.div
+            animate={{
+              rotate: isUnlocking
+                ? isLeft
+                  ? -100
+                  : 100
+                : 0,
+            }}
+            transition={{
+              duration: 0.85,
+              ease: "easeInOut",
+            }}
+            className="
+              absolute
+              inset-[35px]
+              rounded-full
+              border
+              border-[#D6A245]/55
+            "
+          />
+
+          {/* center */}
+          <div
+            className="
+              absolute
+              inset-[58px]
+              rounded-full
+              border
+              border-[#DAA946]/50
+              bg-[radial-gradient(circle,#D6A44A_0%,#A87320_30%,#0D324A_72%)]
+              shadow-[inset_0_0_22px_rgba(0,0,0,.35)]
+            "
+          />
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* =========================================================
+   PARTICLES
+========================================================= */
+
+const particles = [
+  { left: "25%", top: "28%", delay: 0.1 },
+  { left: "30%", top: "65%", delay: 0.7 },
+  { left: "34%", top: "20%", delay: 1.2 },
+  { left: "42%", top: "73%", delay: 0.4 },
+  { left: "50%", top: "24%", delay: 1.4 },
+  { left: "58%", top: "67%", delay: 0.9 },
+  { left: "66%", top: "32%", delay: 0.3 },
+  { left: "72%", top: "58%", delay: 1.5 },
+];
+
+function GoldParticles({
+  active,
+}) {
+  return (
+    <div
+      className="
+        pointer-events-none
+        absolute
+        inset-0
+        z-20
+      "
+    >
+      {particles.map(
+        (
+          particle,
+          index
+        ) => (
+          <motion.span
+            key={index}
+            className="
+              absolute
+              h-[3px]
+              w-[3px]
+              rounded-full
+              bg-[#F0C36B]
+              shadow-[0_0_9px_rgba(240,195,107,.85)]
+            "
+            style={{
+              left:
+                particle.left,
+
+              top:
+                particle.top,
+            }}
+            animate={{
+              opacity: active
+                ? [0.15, 1, 0.15]
+                : [0.12, 0.55, 0.12],
+
+              y: active
+                ? [0, -22, -40]
+                : [0, -8, 0],
+
+              scale: active
+                ? [0.7, 1.5, 0.5]
+                : [0.7, 1.1, 0.7],
+            }}
+            transition={{
+              duration: active
+                ? 1.2
+                : 3.5,
+
+              repeat: Infinity,
+
+              delay:
+                particle.delay,
+
+              ease: "easeInOut",
+            }}
+          />
+        )
       )}
+    </div>
+  );
+}
+
+/* =========================================================
+   MAIN PAGE
+========================================================= */
+
+export default function ResumeGamePage() {
+  const [phase, setPhase] =
+    useState("idle");
+
+  const handleStart = () => {
+    if (phase !== "idle") {
+      return;
+    }
+
+    /* charge the vault */
+    setPhase("unlocking");
+
+    /* release the doors */
+    setTimeout(() => {
+      setPhase("opening");
+
+      setTimeout(() => {
+        setPhase("done");
+      }, 1350);
+    }, 950);
+  };
+
+  const handleBackToEntry =
+    () => {
+      if (phase !== "done") {
+        return;
+      }
+
+      setPhase("closing");
+
+      setTimeout(() => {
+        setPhase("idle");
+      }, 1150);
+    };
+
+  const isDone =
+    phase === "done";
+
+  const isUnlocking =
+    phase === "unlocking";
+
+  const isOpening =
+    phase === "opening";
+
+  const isClosing =
+    phase === "closing";
+
+  return (
+    <div
+      className="
+        relative
+        h-[100dvh]
+        min-h-0
+        w-full
+        overflow-hidden
+        bg-[#061D2F]
+      "
+    >
+      {/* ===================================================
+          ACTUAL GAME
+      =================================================== */}
+
+      <div
+        className="
+          absolute
+          inset-0
+          z-0
+        "
+      >
+        <ResumeGameErrorBoundary>
+          <ResumeBuilderGame
+            audioActive={isDone}
+            onBackToEntry={
+              handleBackToEntry
+            }
+          />
+        </ResumeGameErrorBoundary>
+      </div>
+
+      {/* ===================================================
+          VAULT ENTRY
+      =================================================== */}
+
+      <AnimatePresence>
+        {!isDone && (
+          <motion.div
+            key="vault-entry"
+            initial={{
+              opacity:
+                isClosing ? 1 : 1,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+              transition: {
+                duration: 0.22,
+              },
+            }}
+            className="
+              absolute
+              inset-0
+              z-[9999]
+              overflow-hidden
+            "
+          >
+            {/* =============================================
+                ENTRY PAGE
+            ============================================= */}
+
+            <motion.div
+              initial={{
+                opacity:
+                  isClosing ? 0 : 1,
+              }}
+              animate={{
+                opacity:
+                  phase === "idle"
+                    ? 1
+                    : isClosing
+                    ? 1
+                    : isUnlocking
+                    ? 0.92
+                    : 0,
+              }}
+              transition={{
+                duration: 0.5,
+                delay:
+                  isClosing
+                    ? 0.45
+                    : 0,
+              }}
+              className="
+                absolute
+                inset-0
+                z-10
+              "
+            >
+              <ResumeGameEntry
+                onStart={
+                  handleStart
+                }
+                onBack={() => {
+                  if (window.history.length > 1) {
+                    window.history.back();
+                  } else {
+                    window.location.assign("/dashboard");
+                  }
+                }}
+              />
+            </motion.div>
+
+            {/* =============================================
+                CENTRAL WARM LIGHT
+            ============================================= */}
+
+            <motion.div
+              initial={{
+                opacity: 0,
+                scale: 0.8,
+              }}
+              animate={{
+                opacity: isOpening
+                  ? [0, 0.85, 0]
+                  : isUnlocking
+                  ? 0.25
+                  : 0,
+
+                scale: isOpening
+                  ? [0.8, 1.35, 2]
+                  : 0.8,
+              }}
+              transition={{
+                duration:
+                  isOpening
+                    ? 0.9
+                    : 0.4,
+
+                ease:
+                  "easeOut",
+              }}
+              className="
+                pointer-events-none
+                absolute
+                left-1/2
+                top-1/2
+                z-20
+                h-[85vh]
+                w-[55vw]
+                -translate-x-1/2
+                -translate-y-1/2
+                rounded-full
+                bg-[#FFE3A1]
+                blur-[120px]
+                mix-blend-screen
+              "
+            />
+
+            {/* particles */}
+            <GoldParticles
+              active={
+                isUnlocking ||
+                isOpening
+              }
+            />
+
+            {/* =============================================
+                LEFT VAULT
+            ============================================= */}
+
+            <VaultDoor
+              side="left"
+              phase={phase}
+            />
+
+            {/* =============================================
+                RIGHT VAULT
+            ============================================= */}
+
+            <VaultDoor
+              side="right"
+              phase={phase}
+            />
+
+            {/* =============================================
+                UNLOCK STATUS
+            ============================================= */}
+
+            <AnimatePresence>
+              {isUnlocking && (
+                <motion.div
+                  initial={{
+                    opacity: 0,
+                    y: 8,
+                  }}
+                  animate={{
+                    opacity: 1,
+                    y: 0,
+                  }}
+                  exit={{
+                    opacity: 0,
+                  }}
+                  className="
+                    pointer-events-none
+                    absolute
+                    bottom-[38px]
+                    left-1/2
+                    z-50
+                    -translate-x-1/2
+                  "
+                >
+                  <div
+                    className="
+                      rounded-full
+                      border
+                      border-[#E8BA59]/40
+                      bg-[#08293F]/92
+                      px-5
+                      py-2
+                      text-[8px]
+                      font-black
+                      uppercase
+                      tracking-[0.28em]
+                      text-[#F0C86D]
+                      shadow-[0_0_25px_rgba(231,181,80,.18)]
+                    "
+                  >
+                    Unlocking Career Potential
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-function Toast({ message = "", variant = "info" }) {
+function Toast({ message = "", variant = "info", compact = false }) {
   if (!message) {
     return null;
   }
@@ -10,7 +10,7 @@ function Toast({ message = "", variant = "info" }) {
   };
 
   return (
-    <div className={`rounded-2xl border px-4 py-3 text-sm ${styles[variant]}`}>
+    <div className={`${compact ? "rounded-[10px] px-3 py-2 text-[11px] font-semibold" : "rounded-2xl px-4 py-3 text-sm"} border ${styles[variant]}`}>
       {message}
     </div>
   );

@@ -1,62 +1,116 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import { useUser } from "@clerk/clerk-react";
+
 import {
+  ArrowLeft,
+  ArrowRight,
   Bolt,
   BriefcaseBusiness,
+  Crown,
   Database,
   Download,
   Eye,
   FileCheck2,
   FileText,
-  FolderOpen,
   Gauge,
+  HelpCircle,
   LayoutDashboard,
-  Mail,
-  MapPin,
   Menu,
-  Phone,
-  SearchCheck,
-  Settings2,
   Sparkles,
+  Star,
   Upload,
+  UploadCloud,
   UserRound,
   X,
-  Star,
-  ArrowUpRight,
 } from "lucide-react";
-import { useUser } from "@clerk/clerk-react";
-import CustomUserButton from "../components/common/CustomUserButton";
-import colorLogo from "../assets/logos/BlueLogo.png";
 
+import CustomUserButton from "../components/common/CustomUserButton";
 import Loader from "../components/common/Loader";
 import Toast from "../components/common/Toast";
+import DashboardTour from "../tours/DashboardTour";
+
+import lightLogo from "../assets/logos/GoldenLogo.png";
+import dashboardBackground from "../assets/home/dashboard.png";
+
 import apiClient from "../services/apiClient";
-import { uploadJobDescriptionFile, getJobDescriptions } from "../services/jobDescriptionApi";
+import { calculateAtsUsage, POINTS_PER_USD } from "../services/subscriptionService";
+
+import {
+  uploadJobDescriptionFile,
+  getJobDescriptions,
+} from "../services/jobDescriptionApi";
+
 import {
   getSavedReportPdfUrl,
   getSavedReports,
 } from "../services/reportApi";
-import { getResumes, uploadResume } from "../services/resumeApi";
+
 import {
-  formatUsd,
-  isAtsCheckerLedgerService,
-  getActualReportTokens,
-  estimateResumePoints,
-  estimateJdPoints,
-} from "../services/subscriptionService";
+  getResumes,
+  uploadResume,
+} from "../services/resumeApi";
+
+
+/* =========================================================
+   CONFIG
+   ========================================================= */
 
 const SECTION_ITEMS = [
-  { id: "overview", label: "Overview", icon: LayoutDashboard },
-  { id: "reports", label: "My ATS Reports", icon: FileCheck2 },
-  { id: "sources", label: "Data Sources", icon: Database },
-  { id: "billing", label: "Usage & Billing", icon: Bolt },
-  { id: "profile", label: "Profile Settings", icon: Settings2 },
+  {
+    id: "overview",
+    label: "Overview",
+    icon: LayoutDashboard,
+  },
+  {
+    id: "reports",
+    label: "My ATS Reports",
+    icon: FileCheck2,
+  },
+  {
+    id: "sources",
+    label: "Data Sources",
+    icon: Database,
+  },
+  {
+    id: "billing",
+    label: "Usage & Billing",
+    icon: Gauge,
+  },
+  {
+    id: "profile",
+    label: "Profile Settings",
+    icon: UserRound,
+  },
 ];
 
-const DASHBOARD_SCALE = 0.75;
+const PROFILE_STORAGE_KEY =
+  "careersense-dashboard-profile";
 
-const PROFILE_STORAGE_KEY = "careersense-dashboard-profile";
+const REPORTS_CACHE_KEY = "careersense_ats_reports_cache";
+const RESUMES_CACHE_KEY = "careersense_ats_resumes_cache";
+const JD_CACHE_KEY = "careersense_ats_jd_cache";
+
+function getCachedItems(key) {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setCachedItems(key, items) {
+  if (typeof window === "undefined" || !Array.isArray(items)) return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(items));
+  } catch {
+    // ignore
+  }
+}
 
 const DEFAULT_PROFILE = {
   fullName: "",
@@ -67,33 +121,70 @@ const DEFAULT_PROFILE = {
   currentTitle: "",
 };
 
+
+/* =========================================================
+   HELPERS
+   ========================================================= */
+
 function readStoredProfile() {
   if (typeof window === "undefined") {
     return DEFAULT_PROFILE;
   }
 
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(PROFILE_STORAGE_KEY) || "{}");
-    const master = JSON.parse(window.localStorage.getItem("careerSenseUser") || "{}");
+    const parsed = JSON.parse(
+      window.localStorage.getItem(PROFILE_STORAGE_KEY) || "{}"
+    );
+
+    const master = JSON.parse(
+      window.localStorage.getItem("careerSenseUser") || "{}"
+    );
+
     return {
-      fullName: parsed.fullName || master.name || master.fullName || DEFAULT_PROFILE.fullName,
-      email: parsed.email || master.email || DEFAULT_PROFILE.email,
-      phone: parsed.phone || master.phone || DEFAULT_PROFILE.phone,
-      location: parsed.location || master.location || DEFAULT_PROFILE.location,
-      linkedin: parsed.linkedin || master.linkedinPortfolio || master.linkedin || DEFAULT_PROFILE.linkedin,
-      currentTitle: parsed.currentTitle || master.currentRole || master.currentJobTitle || DEFAULT_PROFILE.currentTitle,
+      fullName:
+        parsed.fullName ||
+        master.name ||
+        master.fullName ||
+        DEFAULT_PROFILE.fullName,
+
+      email:
+        parsed.email ||
+        master.email ||
+        DEFAULT_PROFILE.email,
+
+      phone:
+        parsed.phone ||
+        master.phone ||
+        DEFAULT_PROFILE.phone,
+
+      location:
+        parsed.location ||
+        master.location ||
+        DEFAULT_PROFILE.location,
+
+      linkedin:
+        parsed.linkedin ||
+        master.linkedinPortfolio ||
+        master.linkedin ||
+        DEFAULT_PROFILE.linkedin,
+
+      currentTitle:
+        parsed.currentTitle ||
+        master.currentRole ||
+        master.currentJobTitle ||
+        DEFAULT_PROFILE.currentTitle,
     };
   } catch {
     return DEFAULT_PROFILE;
   }
 }
 
+
 function formatDate(value) {
-  if (!value) {
-    return "Unknown";
-  }
+  if (!value) return "Unknown";
 
   const date = new Date(value);
+
   if (Number.isNaN(date.getTime())) {
     return value;
   }
@@ -107,30 +198,40 @@ function formatDate(value) {
   });
 }
 
+
 function formatShortDate(value) {
-  if (!value) {
-    return "Unknown";
-  }
+  if (!value) return "Unknown";
 
   const date = new Date(value);
+
   if (Number.isNaN(date.getTime())) {
     return value;
   }
 
   return date.toLocaleDateString(undefined, {
-    year: "numeric",
     month: "short",
     day: "numeric",
+    year: "numeric",
   });
 }
 
+
 function formatPoints(value) {
-  return new Intl.NumberFormat().format(Math.max(0, Math.round(value || 0)));
+  return new Intl.NumberFormat().format(
+    Math.max(0, Math.round(Number(value) || 0))
+  );
 }
+
+
+function formatUsd(value) {
+  return `$${Number(value || 0).toFixed(4)}`;
+}
+
 
 function withTimeout(promise, timeoutMs = 20000) {
   return Promise.race([
     promise,
+
     new Promise((_, reject) => {
       window.setTimeout(() => {
         reject(new Error("Request timed out"));
@@ -139,507 +240,2297 @@ function withTimeout(promise, timeoutMs = 20000) {
   ]);
 }
 
-function SectionCard({ children, className = "" }) {
+
+function getActualReportTokens(report) {
+  if (
+    report.tokens_cost ||
+    report.careerPoints ||
+    report.total_tokens ||
+    report.tokensCost
+  ) {
+    return (
+      report.tokens_cost ||
+      report.careerPoints ||
+      report.total_tokens ||
+      report.tokensCost
+    );
+  }
+
+  const base =
+    report.has_job_description
+      ? 1825
+      : 1350;
+
+  const scoreBonus =
+    Math.round(
+      (report.overall_score || 0) * 4.75
+    );
+
+  return base + scoreBonus;
+}
+
+
+function estimateResumePoints() {
+  return 180;
+}
+
+
+function estimateJdPoints() {
+  return 95;
+}
+
+
+/* =========================================================
+   SHARED PANEL
+   ========================================================= */
+
+function Panel({
+  children,
+  className = "",
+  ...props
+}) {
   return (
     <section
-      className={`rounded-[32px] border border-white/75 bg-white/72 shadow-[0_24px_50px_rgba(21,46,84,0.08)] backdrop-blur-sm ${className}`}
+      {...props}
+      className={`
+        rounded-[18px]
+        border
+        border-[#D9E2E7]
+        bg-[#FFFDFC]/90
+        shadow-[0_12px_32px_rgba(8,47,73,.055)]
+        backdrop-blur-[5px]
+        ${className}
+      `}
     >
       {children}
     </section>
   );
 }
 
-function SmallMetricCard({ label, value, subtext, href }) {
+
+/* =========================================================
+   SCORE BADGE
+   ========================================================= */
+
+function ScoreBadge({
+  score,
+}) {
+  const value =
+    Number(score) || 0;
+
+  let style =
+    "bg-[#FCE7E3] text-[#C8463D]";
+
+  if (value >= 75) {
+    style =
+      "bg-[#E5F4EA] text-[#16815C]";
+  } else if (value >= 60) {
+    style =
+      "bg-[#FFF1D5] text-[#B77718]";
+  }
+
   return (
-    <div className="relative flex flex-col justify-between rounded-[28px] border border-[#D5E2EC] bg-white/82 p-6 shadow-[0_18px_34px_rgba(21,46,84,0.06)]">
-      <div>
-        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#6B88A0]">
-          {label}
-        </p>
-        <p className="mt-4 text-[3rem] font-black leading-none tracking-[-0.05em] text-[#2F4054]">
-          {value}
-        </p>
-        <p className="mt-3 text-base font-medium text-[#6A859B]">{subtext}</p>
-      </div>
-      {href && (
-        <div className="mt-4 flex justify-end">
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Upgrade Plan"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-xl border border-[#D5E2EC] bg-[#F4F8FA] text-[#2F4054] shadow-xs transition-all duration-200 hover:scale-105 hover:border-[#0E8BFF] hover:bg-[#0E8BFF] hover:text-white"
+    <span
+      className={`
+        inline-flex
+        min-w-[46px]
+        items-center
+        justify-center
+        rounded-full
+        px-3
+        py-1.5
+        text-[10px]
+        font-black
+        ${style}
+      `}
+    >
+      {value}
+    </span>
+  );
+}
+
+
+/* =========================================================
+   NAVBAR
+   ========================================================= */
+
+function DashboardNavbar({
+  profile,
+  tokensRemaining,
+  estimatedCost,
+  onMobileMenu,
+  onHelp,
+}) {
+  const navigate =
+    useNavigate();
+
+  return (
+    <header
+      className="
+        relative
+        z-50
+        flex
+        h-[74px]
+        shrink-0
+        items-center
+        bg-[#123A55]
+        px-5
+        text-white
+        shadow-[0_5px_20px_rgba(4,35,54,.16)]
+        lg:px-8
+      "
+    >
+      <div
+        className="
+          mx-auto
+          flex
+          w-full
+          max-w-[1920px]
+          items-center
+          justify-between
+          gap-6
+        "
+      >
+        {/* LEFT */}
+
+        <div
+          className="
+            flex
+            items-center
+            gap-5
+          "
+        >
+          <button
+            type="button"
+            onClick={onMobileMenu}
+            className="
+              flex
+              h-10
+              w-10
+              items-center
+              justify-center
+              rounded-xl
+              border
+              border-white/15
+              bg-white/5
+              lg:hidden
+            "
           >
-            <ArrowUpRight className="h-4 w-4" />
-          </a>
+            <Menu size={18} />
+          </button>
+
+
+          <Link
+            to="/"
+            className="
+              flex
+              shrink-0
+              items-center
+              gap-3
+            "
+          >
+            <img
+              src={lightLogo}
+              alt="CareerSense"
+              className="
+                h-[46px]
+                w-[46px]
+                object-contain
+              "
+            />
+
+            <div>
+              <div
+                className="
+                  font-serif
+                  text-[24px]
+                  font-semibold
+                  leading-none
+                  tracking-[-0.03em]
+                "
+                style={{
+                  fontFamily:
+                    "Georgia, 'Times New Roman', serif",
+                }}
+              >
+                Career
+                <span
+                  className="
+                    text-[#E6B84F]
+                  "
+                >
+                  Sense
+                </span>
+              </div>
+
+              <p
+                className="
+                  mt-1
+                  text-[7px]
+                  font-black
+                  uppercase
+                  tracking-[0.26em]
+                  text-[#A9C0CF]
+                "
+              >
+                ATS Intelligence
+              </p>
+            </div>
+          </Link>
         </div>
+
+
+        {/* RIGHT */}
+
+        <div
+          className="
+            flex
+            items-center
+            gap-3
+          "
+        >
+          <button
+            type="button"
+            onClick={onHelp}
+            data-tour="dashboard-help"
+            className="
+              hidden
+              items-center
+              gap-2
+              px-3
+              text-[11px]
+              font-medium
+              text-[#D8E4EA]
+              xl:flex
+            "
+          >
+            <HelpCircle size={16} />
+            Help
+          </button>
+
+
+          {/* TOKENS */}
+
+          <div
+            data-tour="dashboard-tokens"
+            className="
+              hidden
+              min-w-[205px]
+              items-center
+              gap-3
+              rounded-[12px]
+              border
+              border-white/15
+              bg-white/[0.07]
+              px-4
+              py-2
+              xl:flex
+            "
+          >
+            <span
+              className="
+                flex
+                h-9
+                w-9
+                items-center
+                justify-center
+                rounded-full
+                bg-[#FFF3D5]
+                text-[#D9941B]
+              "
+            >
+              <Star
+                size={17}
+                fill="currentColor"
+              />
+            </span>
+
+            <div>
+              <p
+                className="
+                  text-[7px]
+                  font-black
+                  uppercase
+                  tracking-[0.2em]
+                  text-[#A9C0CF]
+                "
+              >
+                AI Tokens Remaining
+              </p>
+
+              <p
+                className="
+                  mt-0.5
+                  text-[12px]
+                  font-black
+                  text-white
+                "
+              >
+                {Number(
+                  tokensRemaining || 0
+                ).toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+
+          {/* BILL */}
+
+          <div
+            className="
+              hidden
+              min-w-[150px]
+              items-center
+              gap-3
+              rounded-[12px]
+              border
+              border-white/15
+              bg-white/[0.07]
+              px-4
+              py-2
+              lg:flex
+            "
+          >
+            <span
+              className="
+                flex
+                h-9
+                w-9
+                items-center
+                justify-center
+                rounded-full
+                bg-[#E1F4E9]
+                font-black
+                text-[#14845A]
+              "
+            >
+              $
+            </span>
+
+            <div>
+              <p
+                className="
+                  text-[7px]
+                  font-black
+                  uppercase
+                  tracking-[0.2em]
+                  text-[#A9C0CF]
+                "
+              >
+                Bill
+              </p>
+
+              <p
+                className="
+                  mt-0.5
+                  text-[12px]
+                  font-black
+                "
+              >
+                {formatUsd(
+                  estimatedCost
+                )}
+              </p>
+            </div>
+          </div>
+
+
+          <Link
+            to="/dashboard"
+            className="
+              hidden
+              h-[46px]
+              items-center
+              justify-center
+              rounded-[10px]
+              border
+              border-white/16
+              bg-white/[0.07]
+              px-5
+              text-[10px]
+              font-black
+              lg:flex
+            "
+          >
+            Dashboard
+          </Link>
+
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate(-1)
+            }
+            className="
+              hidden
+              h-[46px]
+              items-center
+              gap-2
+              rounded-[10px]
+              border
+              border-white/16
+              bg-white/[0.07]
+              px-5
+              text-[10px]
+              font-black
+              lg:flex
+            "
+          >
+            <ArrowLeft size={14} />
+            Back
+          </button>
+
+
+          <CustomUserButton />
+        </div>
+      </div>
+    </header>
+  );
+}
+
+
+/* =========================================================
+   SIDEBAR
+   ========================================================= */
+
+function DashboardSidebar({
+  activeSection,
+  onSelectSection,
+  profile,
+  user,
+  subData,
+}) {
+  const currentPlan = (subData?.plan || "free").toLowerCase();
+  const hasPaidPlan = currentPlan !== "free";
+  const planDisplayName = currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1);
+  return (
+    <aside
+      data-tour="dashboard-sidebar"
+      className="
+        relative
+        z-30
+        hidden
+        w-[285px]
+        shrink-0
+        flex-col
+        overflow-hidden
+        bg-[linear-gradient(180deg,#062F49_0%,#052B43_100%)]
+        px-5
+        pb-6
+        pt-7
+        text-white
+        lg:flex
+      "
+    >
+      {/* PROFILE */}
+
+      <div
+        className="
+          flex
+          items-center
+          gap-4
+          px-2
+        "
+      >
+        <div
+          className="
+            h-[50px]
+            w-[50px]
+            shrink-0
+            overflow-hidden
+            rounded-full
+            border-2
+            border-[#D6B46B]/60
+            bg-[#174B68]
+          "
+        >
+          {user?.imageUrl ? (
+            <img
+              src={user.imageUrl}
+              alt=""
+              className="
+                h-full
+                w-full
+                object-cover
+              "
+            />
+          ) : (
+            <div
+              className="
+                flex
+                h-full
+                w-full
+                items-center
+                justify-center
+              "
+            >
+              <UserRound size={22} />
+            </div>
+          )}
+        </div>
+
+
+        <div>
+          <p
+            className="
+              text-[10px]
+              font-medium
+              text-[#C2D3DC]
+            "
+          >
+            Welcome back,
+          </p>
+
+          <p
+            className="
+              mt-1
+              font-serif
+              text-[19px]
+              font-semibold
+              leading-none
+              text-white
+            "
+            style={{
+              fontFamily:
+                "Georgia, 'Times New Roman', serif",
+            }}
+          >
+            {profile.fullName ||
+              "CareerSense User"}
+          </p>
+        </div>
+      </div>
+
+
+      <p
+        className="
+          mt-7
+          px-2
+          text-[7px]
+          font-black
+          uppercase
+          tracking-[0.32em]
+          text-[#9CB5C4]
+        "
+      >
+        Let's build your next opportunity
+      </p>
+
+
+      {/* NAV */}
+
+      <nav
+        className="
+          mt-5
+          space-y-2
+        "
+      >
+        {SECTION_ITEMS.map(
+          ({
+            id,
+            label,
+            icon: Icon,
+          }) => {
+            const active =
+              activeSection === id;
+
+            return (
+              <button
+                key={id}
+                type="button"
+                data-tour={`dashboard-nav-${id}`}
+                onClick={() =>
+                  onSelectSection(id)
+                }
+                className={`
+                  relative
+                  flex
+                  w-full
+                  items-center
+                  gap-4
+                  rounded-[13px]
+                  border
+                  px-4
+                  py-[15px]
+                  text-left
+                  transition-all
+
+                  ${
+                    active
+                      ? `
+                        border-[#D8B66A]/45
+                        bg-[#D5B15B]/28
+                        text-white
+                        shadow-[0_0_0_5px_rgba(86,124,141,.16)]
+                      `
+                      : `
+                        border-transparent
+                        text-[#D2DEE4]
+                        hover:bg-white/[0.05]
+                        hover:text-white
+                      `
+                  }
+                `}
+              >
+                <Icon
+                  size={18}
+                  className={
+                    active
+                      ? "text-[#F3BD3E]"
+                      : "text-[#AFC4D0]"
+                  }
+                />
+
+                <span
+                  className="
+                    text-[11px]
+                    font-semibold
+                  "
+                >
+                  {label}
+                </span>
+              </button>
+            );
+          }
+        )}
+      </nav>
+
+
+      {/* UPGRADE */}
+
+      <div
+        className="
+          mt-6
+          rounded-[16px]
+          border
+          border-[#6D8DA0]/65
+          bg-[#093650]/65
+          p-4
+        "
+      >
+        <div
+          className="
+            flex
+            items-start
+            gap-3
+          "
+        >
+          <span
+            className="
+              flex
+              h-10
+              w-10
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              bg-[#F2BC3D]
+              text-[#0B3651]
+            "
+          >
+            <Crown size={18} />
+          </span>
+
+          <div>
+            <p
+              className="
+                text-[11px]
+                font-black
+              "
+            >
+              {hasPaidPlan ? `${planDisplayName} Plan` : "Upgrade to Pro"}
+            </p>
+
+            <p
+              className="
+                mt-1
+                text-[8.5px]
+                font-medium
+                leading-[1.5]
+                text-[#BCD0DA]
+              "
+            >
+              {hasPaidPlan
+                ? "Active subscription with premium AI access & benefits."
+                : "Higher limits, deeper analysis and premium features."}
+            </p>
+          </div>
+        </div>
+
+
+        <a
+          href="https://careersenseai.com/pricing"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="
+            mt-4
+            flex
+            h-[42px]
+            w-full
+            items-center
+            justify-center
+            gap-3
+            rounded-[9px]
+            bg-[#F1BD45]
+            text-[9px]
+            font-black
+            text-[#123A55]
+            shadow-[0_8px_20px_rgba(232,185,79,.18)]
+            transition hover:brightness-105
+          "
+        >
+          {hasPaidPlan ? "Manage Plan" : "Upgrade Now"}
+
+          <ArrowRight size={13} />
+        </a>
+      </div>
+
+
+      {/* SLOGAN */}
+
+      <div
+        className="
+          mt-auto
+          pb-1
+          pt-6
+          text-center
+        "
+      >
+        <p
+          className="
+            font-serif
+            text-[16px]
+            italic
+            leading-[1.2]
+            text-[#DAE5EA]
+          "
+          style={{
+            fontFamily:
+              "Georgia, 'Times New Roman', serif",
+          }}
+        >
+          Better Resumes.
+          <br />
+          Brighter Futures.
+        </p>
+
+        <span
+          className="
+            mx-auto
+            mt-3
+            block
+            h-[2px]
+            w-12
+            rotate-[-5deg]
+            bg-[#F2BB38]
+          "
+        />
+      </div>
+    </aside>
+  );
+}
+
+
+/* =========================================================
+   HEADING
+   ========================================================= */
+
+function DashboardHeading({
+  profile,
+}) {
+  return (
+    <div>
+      <p
+        className="
+          text-[8px]
+          font-black
+          uppercase
+          tracking-[0.28em]
+          text-[#B5771A]
+        "
+      >
+        Dashboard
+      </p>
+
+      <h1
+        className="
+          mt-2
+          font-serif
+          text-[34px]
+          font-semibold
+          leading-[1]
+          tracking-[-0.035em]
+          text-[#103650]
+          xl:text-[39px]
+        "
+        style={{
+          fontFamily:
+            "Georgia, 'Times New Roman', serif",
+        }}
+      >
+        Good to see you again,{" "}
+        {profile.fullName
+          ? profile.fullName.split(" ")[0]
+          : "there"}
+        !
+      </h1>
+
+      <p
+        className="
+          mt-2
+          text-[10.5px]
+          font-medium
+          text-[#567C8D]
+        "
+      >
+        Here's an overview of your ATS activity and everything you need to strengthen your next application.
+      </p>
+    </div>
+  );
+}
+
+
+/* =========================================================
+   STAT CARD
+   ========================================================= */
+
+function OverviewStatCard({
+  title,
+  value,
+  footer,
+  icon: Icon,
+  tone,
+  progress,
+}) {
+  const themes = {
+    blue: {
+      iconBg: "#E6F1FA",
+      iconColor: "#126BC6",
+      border: "#C9DDEB",
+      bar: "#2387D5",
+      track: "#E3EEF4",
+    },
+
+    green: {
+      iconBg: "#E4F4EB",
+      iconColor: "#11875C",
+      border: "#C8E2D5",
+      bar: "#16A36C",
+      track: "#DCECE4",
+    },
+
+    gold: {
+      iconBg: "#FFF0D3",
+      iconColor: "#C38414",
+      border: "#E9D5AB",
+      bar: "#B67A12",
+      track: "#EEE4CF",
+    },
+
+    purple: {
+      iconBg: "#EEE7FF",
+      iconColor: "#6440CA",
+      border: "#DFD5F1",
+      bar: "#6041B9",
+      track: "#E5DFF1",
+    },
+  };
+
+  const theme =
+    themes[tone] ||
+    themes.blue;
+
+  return (
+    <div
+      className="
+        min-h-[122px]
+        rounded-[16px]
+        border
+        bg-[#FFFDFC]/92
+        px-4
+        py-4
+        shadow-[0_10px_28px_rgba(8,47,73,.04)]
+        backdrop-blur-[4px]
+      "
+      style={{
+        borderColor:
+          theme.border,
+      }}
+    >
+      <div
+        className="
+          flex
+          items-start
+          gap-4
+        "
+      >
+        <span
+          className="
+            flex
+            h-[48px]
+            w-[48px]
+            shrink-0
+            items-center
+            justify-center
+            rounded-full
+          "
+          style={{
+            backgroundColor:
+              theme.iconBg,
+
+            color:
+              theme.iconColor,
+          }}
+        >
+          <Icon size={21} />
+        </span>
+
+
+        <div
+          className="
+            min-w-0
+          "
+        >
+          <p
+            className="
+              text-[9px]
+              font-medium
+              text-[#31566D]
+            "
+          >
+            {title}
+          </p>
+
+          <p
+            className="
+              mt-1
+              font-serif
+              text-[25px]
+              font-semibold
+              leading-none
+              text-[#103650]
+            "
+            style={{
+              fontFamily:
+                "Georgia, 'Times New Roman', serif",
+            }}
+          >
+            {value}
+          </p>
+        </div>
+      </div>
+
+
+      {typeof progress ===
+      "number" ? (
+        <div
+          className="
+            mt-4
+          "
+        >
+          <div
+            className="
+              h-[7px]
+              overflow-hidden
+              rounded-full
+            "
+            style={{
+              backgroundColor:
+                theme.track,
+            }}
+          >
+            <div
+              className="
+                h-full
+                rounded-full
+              "
+              style={{
+                width: `${Math.min(
+                  100,
+                  Math.max(
+                    0,
+                    progress
+                  )
+                )}%`,
+
+                backgroundColor:
+                  theme.bar,
+              }}
+            />
+          </div>
+
+          <div
+            className="
+              mt-1.5
+              text-right
+              text-[7.5px]
+              font-black
+            "
+            style={{
+              color:
+                theme.iconColor,
+            }}
+          >
+            {progress}%
+          </div>
+        </div>
+      ) : (
+        <p
+          className="
+            mt-4
+            text-[8px]
+            font-medium
+          "
+          style={{
+            color:
+              theme.iconColor,
+          }}
+        >
+          {footer}
+        </p>
       )}
     </div>
   );
 }
 
-function ProgressRow({ label, value, detail }) {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-[0.98rem] font-bold text-[#2F4054]">{label}</span>
-        <span className="text-[0.98rem] font-black text-[#2F4054]">{value}%</span>
-      </div>
-      <div className="h-3 overflow-hidden rounded-full bg-[#DFE8EF]">
-        <div
-          className="h-full rounded-full bg-[#2F4054]"
-          style={{ width: `${Math.max(0, Math.min(100, value))}%` }}
-        />
-      </div>
-      <p className="text-sm font-medium text-[#6A859B]">{detail}</p>
-    </div>
-  );
-}
 
-function DashboardSidebar({ activeSection, onSelectSection }) {
-  return (
-    <aside className="hidden w-[320px] shrink-0 flex-col border-r border-[#D7E3EC] bg-[linear-gradient(180deg,#E8F0F6_0%,#F6F1EA_68%,#FBF7F1_100%)] lg:flex">
-      <Link
-        to="/"
-        className="flex items-center gap-4 border-b border-[#D7E3EC] px-8 py-8 transition hover:bg-white/20"
-      >
-        <img src={colorLogo} alt="CareerSense Logo" className="h-14 w-14 object-contain rounded-2xl shadow-xs shrink-0" />
-        <div>
-          <p className="text-[2rem] font-black leading-none tracking-[-0.04em] text-[#2F4054]">
-            <span className="text-[#0D2E63]">Career</span><span className="text-[#306099]">Sense</span>
-          </p>
-          <p className="mt-1 text-[10px] font-black uppercase tracking-[0.22em] text-[#6B87A0] whitespace-nowrap">
-            ATS Intelligence
-          </p>
-        </div>
-      </Link>
+/* =========================================================
+   ACTION CARDS
+   ========================================================= */
 
-      <nav className="space-y-2 px-5 py-8">
-        {SECTION_ITEMS.map(({ id, label, icon: Icon }) => {
-          const active = activeSection === id;
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => onSelectSection(id)}
-              className={`flex w-full items-center gap-4 rounded-[20px] border px-5 py-4 text-left transition ${active
-                ? "border-[#D4E0EA] bg-[#DCE7F1] text-[#2F4054] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.3)]"
-                : "border-transparent bg-transparent text-[#66859C] hover:border-[#D8E3EC] hover:bg-white/45"
-                }`}
-            >
-              <Icon className="h-6 w-6" />
-              <span className="text-[1.1rem] font-bold tracking-tight">{label}</span>
-            </button>
-          );
-        })}
-      </nav>
-    </aside>
-  );
-}
-
-function WorkspaceHeader({
-  title,
-  subtitle,
-  totalPoints,
-  estimatedCost,
-  subData,
-  onStartBuilder,
-  onOpenMobileNav,
+function ActionCards({
+  onUploadResume,
 }) {
   return (
-    <div className="border-b border-[#D7E3EC] px-6 py-5 sm:px-10 sm:py-6">
-      <div className="flex items-center justify-between gap-4">
-
-        {/* Left Side: Hamburger & Title */}
-        <div className="flex items-center gap-3 min-w-0">
-          <button
-            type="button"
-            onClick={onOpenMobileNav}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#D7E3EC] bg-white text-[#2F4054] transition hover:bg-slate-50 focus:outline-none lg:hidden shrink-0"
-            aria-label="Open navigation menu"
+    <div
+      data-tour="dashboard-actions"
+      className="
+        grid
+        gap-3
+        xl:grid-cols-2
+      "
+    >
+      <Panel
+        className="
+          flex
+          min-h-[104px]
+          items-center
+          justify-between
+          gap-5
+          px-5
+          py-4
+        "
+      >
+        <div
+          className="
+            flex
+            items-center
+            gap-4
+          "
+        >
+          <span
+            className="
+              flex
+              h-[50px]
+              w-[50px]
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              bg-[#FFF1D4]
+              text-[#B97813]
+            "
           >
-            <Menu className="h-5 w-5" />
-          </button>
-          <div className="min-w-0">
-            <h1 className="text-[1.5rem] sm:text-[1.95rem] font-black tracking-[-0.04em] text-[#2F4054] truncate">
-              {title}
-            </h1>
-            {subtitle ? (
-              <p className="mt-1 text-[0.98rem] font-medium text-[#6A859B] hidden lg:block">{subtitle}</p>
-            ) : null}
+            <FileCheck2 size={22} />
+          </span>
+
+          <div>
+            <h3
+              className="
+                text-[14px]
+                font-black
+                text-[#103650]
+              "
+            >
+              Run a New ATS Check
+            </h3>
+
+            <p
+              className="
+                mt-1
+                text-[8.5px]
+                font-medium
+                text-[#7892A1]
+              "
+            >
+              Compare your resume against ATS and a target role.
+            </p>
           </div>
         </div>
 
-        {/* Right Side: Desktop indicators/buttons & User Button */}
-        <div
-          className="flex items-center gap-3 shrink-0"
-          style={{ zoom: 1 / DASHBOARD_SCALE }}
+
+        <Link
+          to="/check-ats"
+          className="
+            flex
+            h-[42px]
+            shrink-0
+            items-center
+            gap-2
+            rounded-[9px]
+            bg-[#083B5B]
+            px-5
+            text-[9px]
+            font-black
+            text-white
+            shadow-[0_8px_18px_rgba(8,59,91,.16)]
+          "
         >
+          Start Check
+          <ArrowRight size={13} />
+        </Link>
+      </Panel>
 
-          {/* Desktop Only indicators/buttons */}
-          <div className="hidden lg:flex lg:items-center lg:gap-2">
-            <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 shadow-2xs">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-50 text-amber-500 shrink-0">
-                <Star className="h-3.5 w-3.5" fill="currentColor" />
-              </div>
-              <div className="flex flex-col text-left leading-none">
-                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 leading-tight">AI Tokens Remaining</p>
-                <p className="text-xs font-black text-slate-900 leading-none mt-0.5">{(subData?.tokensRemaining ?? 30000).toLocaleString()}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 shadow-2xs">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 shrink-0">
-                <span className="text-xs font-black">$</span>
-              </div>
-              <div className="flex flex-col text-left leading-none">
-                <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 leading-tight">Bill</p>
-                <p className="text-xs font-black text-slate-900 leading-none mt-0.5">{formatUsd(estimatedCost)}</p>
-              </div>
-            </div>
 
-            <button
-              type="button"
-              onClick={onStartBuilder}
-              className="inline-flex h-9 items-center gap-2 rounded-xl bg-[#2F4054] px-3.5 text-xs font-bold text-white shadow-2xs transition hover:bg-[#3A4D64]"
+      <Panel
+        className="
+          flex
+          min-h-[104px]
+          items-center
+          justify-between
+          gap-5
+          px-5
+          py-4
+        "
+      >
+        <div
+          className="
+            flex
+            items-center
+            gap-4
+          "
+        >
+          <span
+            className="
+              flex
+              h-[50px]
+              w-[50px]
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              bg-[#E7F1FA]
+              text-[#236FC0]
+            "
+          >
+            <UploadCloud size={22} />
+          </span>
+
+          <div>
+            <h3
+              className="
+                text-[14px]
+                font-black
+                text-[#103650]
+              "
             >
-              <Sparkles className="h-3.5 w-3.5" />
-              Check ATS
-            </button>
+              Upload Resume
+            </h3>
+
+            <p
+              className="
+                mt-1
+                text-[8.5px]
+                font-medium
+                text-[#7892A1]
+              "
+            >
+              Add a resume to your CareerSense workspace.
+            </p>
+          </div>
+        </div>
+
+
+        <button
+          type="button"
+          onClick={
+            onUploadResume
+          }
+          className="
+            flex
+            h-[42px]
+            shrink-0
+            items-center
+            gap-2
+            rounded-[9px]
+            border
+            border-[#B9D1E1]
+            bg-white
+            px-5
+            text-[9px]
+            font-black
+            text-[#0B5DB0]
+          "
+        >
+          Upload Resume
+
+          <ArrowRight size={13} />
+        </button>
+      </Panel>
+    </div>
+  );
+}
+
+
+/* =========================================================
+   RECENT REPORTS
+   ========================================================= */
+
+function RecentReports({
+  reports,
+  onViewAll,
+}) {
+  const visible =
+    reports.slice(0, 4);
+
+  return (
+    <Panel
+      data-tour="dashboard-recent-reports"
+      className="
+        min-h-[320px]
+        px-4
+        py-4
+      "
+    >
+      <div
+        className="
+          flex
+          items-center
+          justify-between
+          border-b
+          border-[#E2E8EB]
+          pb-3
+        "
+      >
+        <div
+          className="
+            flex
+            items-center
+            gap-2
+          "
+        >
+          <FileCheck2
+            size={17}
+            className="
+              text-[#C58417]
+            "
+          />
+
+          <h3
+            className="
+              text-[13px]
+              font-black
+              text-[#103650]
+            "
+          >
+            Recent ATS Reports
+          </h3>
+        </div>
+
+        <button
+          type="button"
+          onClick={onViewAll}
+          className="
+            flex
+            items-center
+            gap-2
+            text-[8px]
+            font-black
+            text-[#0D60B2]
+          "
+        >
+          View All
+
+          <ArrowRight size={12} />
+        </button>
+      </div>
+
+
+      <div
+        className="
+          mt-2
+        "
+      >
+        {visible.length ? (
+          visible.map(
+            (report) => (
+              <div
+                key={
+                  report.report_id
+                }
+                className="
+                  flex
+                  items-center
+                  justify-between
+                  gap-4
+                  border-b
+                  border-[#E6EBED]
+                  px-2
+                  py-3
+                  last:border-0
+                "
+              >
+                <div
+                  className="
+                    flex
+                    min-w-0
+                    items-center
+                    gap-3
+                  "
+                >
+                  <span
+                    className="
+                      flex
+                      h-9
+                      w-9
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-[#EDF4F7]
+                      text-[#174B68]
+                    "
+                  >
+                    <FileText size={15} />
+                  </span>
+
+
+                  <div
+                    className="
+                      min-w-0
+                    "
+                  >
+                    <p
+                      className="
+                        truncate
+                        text-[9.5px]
+                        font-black
+                        text-[#103650]
+                      "
+                    >
+                      {report.candidate_name ||
+                        report.resume_file_name}
+                    </p>
+
+                    <p
+                      className="
+                        mt-0.5
+                        text-[7.5px]
+                        font-medium
+                        text-[#7892A1]
+                      "
+                    >
+                      {report.report_type ===
+                      "resume_jd"
+                        ? "Resume + JD"
+                        : "Resume only"}
+
+                      {" · "}
+
+                      {report.report_level === "basic" ? "Basic" : "Detailed"}
+
+                      {" · "}
+
+                      {formatShortDate(
+                        report.created_at
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+
+                <div
+                  className="
+                    flex
+                    items-center
+                    gap-2
+                  "
+                >
+                  <ScoreBadge
+                    score={
+                      report.overall_score
+                    }
+                  />
+
+
+                  <Link
+                    to={report.report_level === "basic" ? `/reports/basic/${report.report_id}` : `/repository/report/${report.report_id}`}
+                    className="
+                      flex
+                      h-8
+                      items-center
+                      gap-1.5
+                      rounded-[8px]
+                      border
+                      border-[#D8E1E5]
+                      bg-white
+                      px-3
+                      text-[7.5px]
+                      font-black
+                      text-[#103650]
+                    "
+                  >
+                    <Eye size={12} />
+                    View
+                  </Link>
+
+
+                  <a
+                    href={getSavedReportPdfUrl(
+                      report.report_id
+                    )}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="
+                      flex
+                      h-8
+                      w-8
+                      items-center
+                      justify-center
+                      rounded-[8px]
+                      border
+                      border-[#D8E1E5]
+                      bg-white
+                      text-[#103650]
+                    "
+                  >
+                    <Download size={12} />
+                  </a>
+                </div>
+              </div>
+            )
+          )
+        ) : (
+          <div
+            className="
+              flex
+              min-h-[210px]
+              flex-col
+              items-center
+              justify-center
+              text-center
+            "
+          >
+            <FileCheck2
+              size={28}
+              className="
+                text-[#AFC0C9]
+              "
+            />
+
+            <p
+              className="
+                mt-3
+                text-[10px]
+                font-black
+                text-[#103650]
+              "
+            >
+              No ATS reports yet
+            </p>
+
+            <p
+              className="
+                mt-1
+                text-[8px]
+                text-[#7892A1]
+              "
+            >
+              Run your first ATS check to see it here.
+            </p>
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+
+/* =========================================================
+   PLAN + USAGE
+   ========================================================= */
+
+function PlanUsageCard({
+  subData,
+  totalPoints,
+}) {
+  const tokenLimit =
+    Math.max(
+      Number(
+        subData?.tokensRemaining || 0
+      ) +
+        Number(
+          totalPoints || 0
+        ),
+      10000
+    );
+
+
+  const usedPercent =
+    tokenLimit
+      ? Math.min(
+          100,
+          Math.round(
+            (
+              Number(
+                totalPoints || 0
+              ) /
+              tokenLimit
+            ) * 100
+          )
+        )
+      : 0;
+
+
+  return (
+    <Panel
+      className="
+        px-4
+        py-4
+      "
+    >
+      <div
+        className="
+          flex
+          items-center
+          justify-between
+          border-b
+          border-[#E2E8EB]
+          pb-3
+        "
+      >
+        <div
+          className="
+            flex
+            items-center
+            gap-2
+          "
+        >
+          <Crown
+            size={17}
+            className="
+              text-[#C58417]
+            "
+          />
+
+          <h3
+            className="
+              text-[13px]
+              font-black
+              text-[#103650]
+            "
+          >
+            Your Plan & Usage
+          </h3>
+        </div>
+
+
+        <button
+          type="button"
+          className="
+            flex
+            items-center
+            gap-2
+            text-[8px]
+            font-black
+            text-[#0D60B2]
+          "
+        >
+          Manage Plan
+
+          <ArrowRight size={12} />
+        </button>
+      </div>
+
+
+      <div
+        className="
+          mt-3
+          flex
+          items-center
+          justify-between
+          border-b
+          border-[#E7EBED]
+          pb-3
+        "
+      >
+        <div
+          className="
+            flex
+            items-center
+            gap-3
+          "
+        >
+          <span
+            className="
+              flex
+              h-10
+              w-10
+              items-center
+              justify-center
+              rounded-full
+              bg-[#F2F5F6]
+              text-[#103650]
+            "
+          >
+            <Crown size={17} />
+          </span>
+
+          <div>
+            <p
+              className="
+                text-[9.5px]
+                font-black
+                text-[#103650]
+              "
+            >
+              {(subData?.plan || "free")
+                .replace(/_/g, " ")
+                .replace(
+                  /\b\w/g,
+                  (c) =>
+                    c.toUpperCase()
+                )}{" "}
+              Plan
+            </p>
+
+            <p
+              className="
+                mt-1
+                text-[7px]
+                text-[#7892A1]
+              "
+            >
+              CareerSense subscription
+            </p>
+          </div>
+        </div>
+
+
+        <button
+          type="button"
+          className="
+            rounded-[8px]
+            bg-[#B77713]
+            px-5
+            py-2.5
+            text-[8px]
+            font-black
+            text-white
+          "
+        >
+          Upgrade
+        </button>
+      </div>
+
+
+      <div
+        className="
+          mt-4
+        "
+      >
+        <div
+          className="
+            flex
+            items-center
+            justify-between
+          "
+        >
+          <div
+            className="
+              flex
+              items-center
+              gap-3
+            "
+          >
+            <span
+              className="
+                flex
+                h-10
+                w-10
+                items-center
+                justify-center
+                rounded-full
+                bg-[#E7F1FA]
+                text-[#286DC3]
+              "
+            >
+              <Bolt size={17} />
+            </span>
+
+            <p
+              className="
+                text-[9px]
+                font-black
+                text-[#103650]
+              "
+            >
+              AI Tokens Remaining
+            </p>
           </div>
 
-          {/* User avatar button - visible everywhere */}
-          <div className="flex items-center shrink-0">
-            <CustomUserButton />
-          </div>
+
+          <p
+            className="
+              text-[8px]
+              font-black
+              text-[#0C68CC]
+            "
+          >
+            {Number(
+              subData?.tokensRemaining || 0
+            ).toLocaleString()}
+          </p>
+        </div>
+
+
+        <div
+          className="
+            mt-3
+            h-[7px]
+            overflow-hidden
+            rounded-full
+            bg-[#E0ECE7]
+          "
+        >
+          <div
+            className="
+              h-full
+              rounded-full
+              bg-[#179C69]
+            "
+            style={{
+              width: `${Math.max(
+                2,
+                100 - usedPercent
+              )}%`,
+            }}
+          />
+        </div>
+
+
+        <p
+          className="
+            mt-1
+            text-right
+            text-[7.5px]
+            font-black
+            text-[#169368]
+          "
+        >
+          {Math.max(
+            0,
+            100 - usedPercent
+          )}
+          %
+        </p>
+      </div>
+    </Panel>
+  );
+}
+
+
+/* =========================================================
+   PRO TIP
+   ========================================================= */
+
+function ProTip() {
+  return (
+    <div
+      className="
+        rounded-[15px]
+        border
+        border-[#E8BD67]
+        bg-[#FFF7E8]/94
+        px-4
+        py-4
+        backdrop-blur-[4px]
+      "
+    >
+      <div
+        className="
+          flex
+          items-start
+          gap-3
+        "
+      >
+        <span
+          className="
+            flex
+            h-10
+            w-10
+            shrink-0
+            items-center
+            justify-center
+            rounded-full
+            bg-[#FBEBCB]
+            text-[#BE7D17]
+          "
+        >
+          <Sparkles size={17} />
+        </span>
+
+        <div>
+          <p
+            className="
+              text-[9.5px]
+              font-black
+              text-[#9A6412]
+            "
+          >
+            Pro Tip
+          </p>
+
+          <p
+            className="
+              mt-1
+              text-[8px]
+              font-medium
+              leading-[1.55]
+              text-[#536F7F]
+            "
+          >
+            Upload both your resume and job description to get better keyword-gap analysis and more accurate role alignment.
+          </p>
         </div>
       </div>
     </div>
   );
 }
+
+
+/* =========================================================
+   OVERVIEW
+   ========================================================= */
 
 function OverviewSection({
   profile,
   reports,
   resumes,
   jobDescriptions,
-  profileCompletion,
-  onSelectSection,
   totalPoints,
+  subData,
+  onUploadResume,
+  onSelectSection,
 }) {
-  const latestReport = reports[0];
-  const latestResume = resumes[0];
-  const latestJd = jobDescriptions[0];
-  const reportReadiness = reports.length ? Math.min(100, 35 + reports.length * 14) : 0;
-  const sourceCoverage = Math.min(
-    100,
-    Math.round(((resumes.length + jobDescriptions.length) / 10) * 100)
-  );
+  const profileValues =
+    Object.values(
+      profile
+    );
+
+  const filled =
+    profileValues.filter(
+      (value) =>
+        typeof value ===
+          "string" &&
+        value.trim()
+    ).length;
+
+
+  const profileCompletion =
+    profileValues.length
+      ? Math.round(
+          (
+            filled /
+            profileValues.length
+          ) * 100
+        )
+      : 0;
+
+
+  const resumeCapacity = 10;
+  const jdCapacity = 25;
+
+
+  const resumePercent =
+    Math.min(
+      100,
+      Math.round(
+        (
+          resumes.length /
+          resumeCapacity
+        ) * 100
+      )
+    );
+
+
+  const jdPercent =
+    Math.min(
+      100,
+      Math.round(
+        (
+          jobDescriptions.length /
+          jdCapacity
+        ) * 100
+      )
+    );
+
 
   return (
-    <div className="space-y-8">
-      <SectionCard className="grid gap-8 px-10 py-10 xl:grid-cols-[1.4fr_1fr]">
-        <div>
-          <p className="text-[13px] font-black uppercase tracking-[0.3em] text-[#6B88A0]">
-            Dashboard Overview
-          </p>
-          <h2 className="mt-6 text-[4.2rem] font-black leading-[0.92] tracking-[-0.08em] text-[#2F4054]">
-            Welcome back,{" "}
-            <span className="text-[#6F90A7]">
-              {profile.fullName ? profile.fullName.split(" ")[0] : "there"}.
-            </span>
-          </h2>
-          <p className="mt-6 max-w-4xl text-[1.18rem] font-medium leading-8 text-[#6A859B]">
-            Your ATS workspace is live. Resume storage, job-description storage,
-            ATS reports, billing visibility, and profile completion are all tracked
-            here so you can pick up work anytime.
-          </p>
+    <div
+      data-tour="dashboard-overview"
+      className="
+        space-y-4
+      "
+    >
+      <DashboardHeading
+        profile={profile}
+      />
 
-          <div className="mt-9 flex flex-wrap gap-4">
-            <Link
-              to="/check-ats"
-              className="inline-flex items-center gap-3 rounded-[20px] bg-[#2F4054] px-7 py-4 text-[1.05rem] font-black text-white shadow-[0_18px_30px_rgba(18,36,72,0.16)] transition hover:-translate-y-0.5 hover:bg-[#394C63]"
-            >
-              <Sparkles className="h-5 w-5" />
-              Check ATS
-            </Link>
-            <button
-              type="button"
-              onClick={() => onSelectSection("reports")}
-              className="inline-flex items-center gap-3 rounded-[20px] border border-[#CFE0EC] bg-white px-7 py-4 text-[1.05rem] font-black text-[#2F4054] shadow-[0_10px_22px_rgba(21,46,84,0.04)] transition hover:-translate-y-0.5"
-            >
-              <FileCheck2 className="h-5 w-5" />
-              Browse ATS Reports
-            </button>
-          </div>
-        </div>
 
-        <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-3">
-          <SmallMetricCard
-            label="ATS Reports Created"
-            value={reports.length}
-            subtext="Saved for future access"
-          />
-          <SmallMetricCard
-            label="Resumes Stored"
-            value={resumes.length}
-            subtext="Ready in Data Sources"
-          />
-          <SmallMetricCard
-            label="JDs Stored"
-            value={jobDescriptions.length}
-            subtext={
-              jobDescriptions.length ? "Available for Resume + JD" : "Add your first job description"
+      {/* STATS */}
+
+      <div
+        data-tour="dashboard-stats"
+        className="
+          grid
+          gap-3
+          md:grid-cols-2
+          xl:grid-cols-4
+        "
+      >
+        <OverviewStatCard
+          title="ATS Reports Created"
+          value={reports.length}
+          footer="Saved in My ATS Reports"
+          icon={FileCheck2}
+          tone="blue"
+        />
+
+        <OverviewStatCard
+          title="Resumes Stored"
+          value={`${resumes.length} / ${resumeCapacity}`}
+          icon={Database}
+          tone="green"
+          progress={resumePercent}
+        />
+
+        <OverviewStatCard
+          title="Job Descriptions"
+          value={`${jobDescriptions.length} / ${jdCapacity}`}
+          icon={BriefcaseBusiness}
+          tone="gold"
+          progress={jdPercent}
+        />
+
+        <OverviewStatCard
+          title="Profile Completeness"
+          value={`${profileCompletion}%`}
+          icon={UserRound}
+          tone="purple"
+          progress={
+            profileCompletion
+          }
+        />
+      </div>
+
+
+      <ActionCards
+        onUploadResume={
+          onUploadResume
+        }
+      />
+
+
+      {/* LOWER */}
+
+      <div
+        className="
+          grid
+          gap-4
+          xl:grid-cols-[1.45fr_.95fr]
+        "
+      >
+        <RecentReports
+          reports={reports}
+          onViewAll={() =>
+            onSelectSection(
+              "reports"
+            )
+          }
+        />
+
+
+        <div
+          className="
+            space-y-4
+          "
+        >
+          <PlanUsageCard
+            subData={subData}
+            totalPoints={
+              totalPoints
             }
           />
-        </div>
-      </SectionCard>
 
-      <div className="grid gap-8 xl:grid-cols-[1.65fr_0.9fr]">
-        <div className="space-y-8">
-          <SectionCard className="px-8 py-8">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-5">
-                <div className="flex h-20 w-20 items-center justify-center rounded-[26px] bg-[#DCE7F1] text-[2.5rem] font-black text-[#2F4054]">
-                  {(profile.fullName || "F").charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <p className="text-[2rem] font-black tracking-[-0.04em] text-[#2F4054]">
-                    {profile.fullName || "Full Name"}
-                  </p>
-                  <p className="mt-1 text-[1.05rem] font-medium text-[#6A859B]">
-                    {profile.currentTitle || "Complete your profile to personalize the workspace"}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => onSelectSection("profile")}
-                className="rounded-[18px] border border-[#CFE0EC] bg-[#EAF2FA] px-6 py-3 text-[1rem] font-bold text-[#2F4054]"
-              >
-                Edit Profile
-              </button>
-            </div>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-[1fr_auto] md:items-center">
-              <div>
-                <div className="flex items-center justify-between text-[#6A859B]">
-                  <span className="text-[1rem] font-bold">{profileCompletion}% complete</span>
-                  <span className="text-[1rem] font-black text-[#2F4054]">
-                    {Object.values(profile).filter(Boolean).length}/{Object.keys(profile).length}
-                  </span>
-                </div>
-                <div className="mt-3 h-4 overflow-hidden rounded-full bg-[#E2EAF1]">
-                  <div
-                    className="h-full rounded-full bg-[#2F4054]"
-                    style={{ width: `${profileCompletion}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard className="px-8 py-8">
-            <h3 className="text-[2rem] font-black tracking-[-0.04em] text-[#2F4054]">
-              Workspace Activity
-            </h3>
-            <p className="mt-2 text-[1.02rem] font-medium text-[#6A859B]">
-              A quick pulse on how much has been configured so far.
-            </p>
-
-            <div className="mt-8 grid gap-6 md:grid-cols-3">
-              <div className="rounded-[24px] border border-[#D9E4EC] bg-white/85 p-6">
-                <p className="text-[12px] font-black uppercase tracking-[0.22em] text-[#6B88A0]">
-                  Latest Report
-                </p>
-                <p className="mt-4 text-[1.3rem] font-black text-[#2F4054]">
-                  {latestReport
-                    ? latestReport.candidate_name || latestReport.resume_file_name
-                    : "No ATS reports yet"}
-                </p>
-                <p className="mt-2 text-sm font-medium text-[#6A859B]">
-                  {latestReport ? formatDate(latestReport.created_at) : "Run your first ATS check to populate this area."}
-                </p>
-              </div>
-
-              <div className="rounded-[24px] border border-[#D9E4EC] bg-white/85 p-6">
-                <p className="text-[12px] font-black uppercase tracking-[0.22em] text-[#6B88A0]">
-                  Latest Resume
-                </p>
-                <p className="mt-4 text-[1.3rem] font-black text-[#2F4054]">
-                  {latestResume ? latestResume.file_name : "No resume stored yet"}
-                </p>
-                <p className="mt-2 text-sm font-medium text-[#6A859B]">
-                  {latestResume ? formatDate(latestResume.updated_at) : "Upload a resume from Data Sources."}
-                </p>
-              </div>
-
-              <div className="rounded-[24px] border border-[#D9E4EC] bg-white/85 p-6">
-                <p className="text-[12px] font-black uppercase tracking-[0.22em] text-[#6B88A0]">
-                  Latest JD
-                </p>
-                <p className="mt-4 text-[1.3rem] font-black text-[#2F4054]">
-                  {latestJd ? latestJd.title : "No job description stored yet"}
-                </p>
-                <p className="mt-2 text-sm font-medium text-[#6A859B]">
-                  {latestJd ? formatDate(latestJd.created_at) : "Upload a JD to support Resume + JD analysis."}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-8 space-y-6">
-              <ProgressRow
-                label="Profile Completion"
-                value={profileCompletion}
-                detail={`${Object.values(profile).filter(Boolean).length} of ${Object.keys(profile).length} profile fields filled`}
-              />
-              <ProgressRow
-                label="ATS Reports Coverage"
-                value={reportReadiness}
-                detail={`${reports.length} saved report${reports.length === 1 ? "" : "s"} available in My ATS Reports`}
-              />
-              <ProgressRow
-                label="Data Sources Attached"
-                value={sourceCoverage}
-                detail={`${resumes.length + jobDescriptions.length} source file${resumes.length + jobDescriptions.length === 1 ? "" : "s"} stored in your workspace`}
-              />
-            </div>
-          </SectionCard>
-        </div>
-
-        <div className="space-y-8">
-          <SectionCard className="px-8 py-8">
-            <div className="flex items-center justify-between gap-4">
-              <h3 className="text-[1.8rem] font-black tracking-[-0.04em] text-[#2F4054]">
-                Profile Snapshot
-              </h3>
-              <button
-                type="button"
-                onClick={() => onSelectSection("profile")}
-                className="rounded-[16px] border border-[#CFE0EC] bg-white px-4 py-2 text-sm font-bold text-[#6A859B]"
-              >
-                Edit
-              </button>
-            </div>
-
-            <div className="mt-6 rounded-[24px] border border-[#D8E4EC] bg-white/84 p-6">
-              <div className="flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-[20px] bg-[#DCE7F1] text-[#2F4054]">
-                  <UserRound className="h-8 w-8" />
-                </div>
-                <div>
-                  <p className="text-[1.6rem] font-black text-[#2F4054]">
-                    {profile.currentTitle || "Profile not completed"}
-                  </p>
-                  <p className="mt-1 text-[1rem] font-medium text-[#6A859B]">
-                    {profile.location || "Add your city or location"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard className="px-8 py-8">
-            <h3 className="text-[1.8rem] font-black tracking-[-0.04em] text-[#2F4054]">
-              System Metrics
-            </h3>
-            <div className="mt-8 space-y-7">
-              <ProgressRow
-                label="Profile Completeness"
-                value={profileCompletion}
-                detail={`${Object.values(profile).filter(Boolean).length} of ${Object.keys(profile).length} fields filled`}
-              />
-              <ProgressRow
-                label="Workspace Activity"
-                value={Math.min(100, Math.round(totalPoints / 40))}
-                detail={`${formatPoints(totalPoints)} Career Sense Points estimated from ATS activity`}
-              />
-              <ProgressRow
-                label="JD Readiness"
-                value={jobDescriptions.length ? 100 : 0}
-                detail={
-                  jobDescriptions.length
-                    ? "Resume + JD analysis is available."
-                    : "Upload at least one job description to unlock full tailoring workflows."
-                }
-              />
-            </div>
-          </SectionCard>
+          <ProTip />
         </div>
       </div>
     </div>
   );
 }
 
-function ReportsSection({ reports }) {
+
+/* =========================================================
+   REPORTS SECTION
+   ========================================================= */
+
+function ReportsSection({
+  reports,
+}) {
   return (
-    <SectionCard className="px-10 py-8">
-      <h2 className="text-[2.25rem] font-black tracking-[-0.04em] text-[#2F4054]">
-        My ATS Reports
-      </h2>
-      <p className="mt-3 text-[1.05rem] font-medium text-[#6A859B]">
-        Every ATS report you save is stored here so you can open it again anytime.
+    <Panel
+      className="
+        px-6
+        py-6
+      "
+    >
+      <p
+        className="
+          text-[8px]
+          font-black
+          uppercase
+          tracking-[0.25em]
+          text-[#B5771A]
+        "
+      >
+        Saved Analysis
       </p>
 
-      <div className="mt-8 space-y-4">
-        {reports.length ? (
-          reports.map((report) => (
-            <div
-              key={report.report_id}
-              className="flex flex-wrap items-center justify-between gap-5 rounded-[24px] border border-[#D8E4EC] bg-white/86 px-6 py-5"
-            >
-              <div className="flex min-w-0 items-center gap-4">
-                <div className="flex h-14 w-14 items-center justify-center rounded-[18px] bg-[#EEF4F9] text-[#6A859B]">
-                  <FileCheck2 className="h-7 w-7" />
-                </div>
-                <div className="min-w-0">
-                  <p className="truncate text-[1.45rem] font-black tracking-[-0.03em] text-[#2F4054]">
-                    {report.candidate_name || report.resume_file_name}
-                  </p>
-                  <p className="mt-1 truncate text-sm font-medium text-[#8AA0B2]">
-                    Resume file: {report.resume_file_name}
-                  </p>
-                  <p className="mt-1 text-[1rem] font-medium text-[#6A859B]">
-                    {report.report_type === "resume_jd" ? "Resume + JD" : "Resume Only"} · Saved {formatDate(report.created_at)}
-                  </p>
-                </div>
-              </div>
+      <h2
+        className="
+          mt-2
+          font-serif
+          text-[30px]
+          font-semibold
+          text-[#103650]
+        "
+        style={{
+          fontFamily:
+            "Georgia, 'Times New Roman', serif",
+        }}
+      >
+        My ATS Reports
+      </h2>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="rounded-full border border-[#D0DDE8] bg-white px-4 py-2 text-sm font-black uppercase tracking-[0.18em] text-[#6B88A0]">
-                  Score {report.overall_score}
+      <p
+        className="
+          mt-2
+          text-[9px]
+          text-[#7892A1]
+        "
+      >
+        Open previous reports, review scores and download saved analysis.
+      </p>
+
+
+      <div
+        className="
+          mt-6
+          space-y-2
+        "
+      >
+        {reports.length ? (
+          reports.map(
+            (report) => (
+              <div
+                key={
+                  report.report_id
+                }
+                className="
+                  flex
+                  flex-wrap
+                  items-center
+                  justify-between
+                  gap-4
+                  rounded-[13px]
+                  border
+                  border-[#DEE5E8]
+                  bg-white/92
+                  px-4
+                  py-3
+                  backdrop-blur-[3px]
+                "
+              >
+                <div
+                  className="
+                    flex
+                    min-w-0
+                    items-center
+                    gap-3
+                  "
+                >
+                  <span
+                    className="
+                      flex
+                      h-10
+                      w-10
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-[#EDF4F7]
+                      text-[#174B68]
+                    "
+                  >
+                    <FileCheck2 size={17} />
+                  </span>
+
+
+                  <div
+                    className="
+                      min-w-0
+                    "
+                  >
+                    <p
+                      className="
+                        truncate
+                        text-[10px]
+                        font-black
+                        text-[#103650]
+                      "
+                    >
+                      {report.candidate_name ||
+                        report.resume_file_name}
+                    </p>
+
+                    <p
+                      className="
+                        mt-1
+                        text-[7.5px]
+                        text-[#7892A1]
+                      "
+                    >
+                      {report.report_type ===
+                      "resume_jd"
+                        ? "Resume + JD"
+                        : "Resume only"}
+
+                      {" · "}
+
+                      {report.report_level === "basic" ? "Basic" : "Detailed"}
+
+                      {" · "}
+
+                      {formatDate(
+                        report.created_at
+                      )}
+                    </p>
+                  </div>
                 </div>
-                <a
-                  href={getSavedReportPdfUrl(report.report_id)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-[16px] border border-[#CFE0EC] bg-white px-4 py-3 text-sm font-bold text-[#2F4054]"
+
+
+                <div
+                  className="
+                    flex
+                    items-center
+                    gap-2
+                  "
                 >
-                  <Download className="h-4 w-4" />
-                  PDF
-                </a>
-                <Link
-                  to={`/repository/report/${report.report_id}`}
-                  className="inline-flex items-center gap-2 rounded-[16px] bg-[#2F4054] px-4 py-3 text-sm font-bold text-white"
-                >
-                  <Eye className="h-4 w-4" />
-                  View Report
-                </Link>
+                  <ScoreBadge
+                    score={
+                      report.overall_score
+                    }
+                  />
+
+                  <a
+                    href={report.report_level === "basic" ? `/reports/basic/${report.report_id}?printMode=1&autoPrint=1` : getSavedReportPdfUrl(report.report_id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="
+                      flex
+                      h-9
+                      items-center
+                      gap-2
+                      rounded-[8px]
+                      border
+                      border-[#D8E1E5]
+                      bg-white
+                      px-3
+                      text-[8px]
+                      font-black
+                      text-[#103650]
+                    "
+                  >
+                    <Download size={12} />
+                    PDF
+                  </a>
+
+
+                  <Link
+                    to={report.report_level === "basic" ? `/reports/basic/${report.report_id}` : `/repository/report/${report.report_id}`}
+                    className="
+                      flex
+                      h-9
+                      items-center
+                      gap-2
+                      rounded-[8px]
+                      bg-[#083B5B]
+                      px-4
+                      text-[8px]
+                      font-black
+                      text-white
+                    "
+                  >
+                    <Eye size={12} />
+                    View
+                  </Link>
+                </div>
               </div>
-            </div>
-          ))
+            )
+          )
         ) : (
-          <div className="rounded-[26px] border border-dashed border-[#D1DFE9] bg-white/70 px-8 py-16 text-center">
-            <p className="text-[1.6rem] font-black text-[#2F4054]">No ATS reports saved yet.</p>
-            <p className="mt-3 text-[1rem] font-medium text-[#6A859B]">
-              Run an ATS check and save the report to make it available here for later review.
+          <div
+            className="
+              rounded-[15px]
+              border
+              border-dashed
+              border-[#CEDDE4]
+              bg-white/55
+              py-16
+              text-center
+              backdrop-blur-[3px]
+            "
+          >
+            <FileCheck2
+              size={30}
+              className="
+                mx-auto
+                text-[#9DB2BE]
+              "
+            />
+
+            <p
+              className="
+                mt-3
+                text-[10px]
+                font-black
+                text-[#103650]
+              "
+            >
+              No ATS reports yet.
             </p>
           </div>
         )}
       </div>
-    </SectionCard>
+    </Panel>
   );
 }
+
+
+/* =========================================================
+   DATA SOURCES
+   ========================================================= */
 
 function DataSourcesSection({
   resumes,
@@ -650,794 +2541,2036 @@ function DataSourcesSection({
   isUploadingJd,
 }) {
   return (
-    <div className="space-y-8">
-      <SectionCard className="px-10 py-8">
-        <h2 className="text-[2.25rem] font-black tracking-[-0.04em] text-[#2F4054]">
+    <div
+      className="
+        space-y-4
+      "
+    >
+      <Panel
+        className="
+          px-6
+          py-6
+        "
+      >
+        <p
+          className="
+            text-[8px]
+            font-black
+            uppercase
+            tracking-[0.25em]
+            text-[#B5771A]
+          "
+        >
+          Workspace Files
+        </p>
+
+        <h2
+          className="
+            mt-2
+            font-serif
+            text-[30px]
+            font-semibold
+            text-[#103650]
+          "
+          style={{
+            fontFamily:
+              "Georgia, 'Times New Roman', serif",
+          }}
+        >
           Data Sources
         </h2>
-        <p className="mt-3 text-[1.05rem] font-medium text-[#6A859B]">
-          Store resumes and job descriptions here, then reuse them during ATS checks anytime.
+
+        <p
+          className="
+            mt-2
+            text-[9px]
+            text-[#7892A1]
+          "
+        >
+          Store resumes and job descriptions and reuse them across ATS workflows.
         </p>
 
-        <div className="mt-8 grid gap-5 xl:grid-cols-2">
+
+        <div
+          className="
+            mt-5
+            grid
+            gap-3
+            md:grid-cols-2
+          "
+        >
           <button
             type="button"
-            onClick={onUploadResumeClick}
-            disabled={isUploadingResume}
-            className="flex items-center justify-between rounded-[24px] border border-[#D4E0EA] bg-white/86 px-6 py-6 text-left shadow-[0_14px_24px_rgba(21,46,84,0.04)] disabled:opacity-70"
+            onClick={
+              onUploadResumeClick
+            }
+            disabled={
+              isUploadingResume
+            }
+            className="
+              flex
+              items-center
+              justify-between
+              rounded-[13px]
+              border
+              border-[#DDE5E8]
+              bg-white/90
+              px-5
+              py-4
+              text-left
+              backdrop-blur-[3px]
+              transition
+              hover:-translate-y-0.5
+              disabled:opacity-50
+            "
           >
             <div>
-              <p className="text-[1.65rem] font-black tracking-[-0.04em] text-[#2F4054]">
+              <p
+                className="
+                  text-[11px]
+                  font-black
+                  text-[#103650]
+                "
+              >
                 Upload Resume
               </p>
-              <p className="mt-2 text-[1rem] font-medium text-[#6A859B]">
-                PDF, DOC, or DOCX resumes are stored with their upload date.
+
+              <p
+                className="
+                  mt-1
+                  text-[8px]
+                  text-[#7892A1]
+                "
+              >
+                PDF, DOC or DOCX
               </p>
             </div>
-            <Upload className="h-7 w-7 text-[#6A859B]" />
+
+            <Upload
+              size={20}
+              className="
+                text-[#C58417]
+              "
+            />
           </button>
+
 
           <button
             type="button"
-            onClick={onUploadJdClick}
-            disabled={isUploadingJd}
-            className="flex items-center justify-between rounded-[24px] border border-[#D4E0EA] bg-white/86 px-6 py-6 text-left shadow-[0_14px_24px_rgba(21,46,84,0.04)] disabled:opacity-70"
+            onClick={
+              onUploadJdClick
+            }
+            disabled={
+              isUploadingJd
+            }
+            className="
+              flex
+              items-center
+              justify-between
+              rounded-[13px]
+              border
+              border-[#DDE5E8]
+              bg-white/90
+              px-5
+              py-4
+              text-left
+              backdrop-blur-[3px]
+              transition
+              hover:-translate-y-0.5
+              disabled:opacity-50
+            "
           >
             <div>
-              <p className="text-[1.65rem] font-black tracking-[-0.04em] text-[#2F4054]">
+              <p
+                className="
+                  text-[11px]
+                  font-black
+                  text-[#103650]
+                "
+              >
                 Upload Job Description
               </p>
-              <p className="mt-2 text-[1rem] font-medium text-[#6A859B]">
-                PDF, TXT, DOC, DOCX, or Markdown files are supported.
+
+              <p
+                className="
+                  mt-1
+                  text-[8px]
+                  text-[#7892A1]
+                "
+              >
+                PDF, DOC, TXT or MD
               </p>
             </div>
-            <Upload className="h-7 w-7 text-[#6A859B]" />
+
+            <Upload
+              size={20}
+              className="
+                text-[#C58417]
+              "
+            />
           </button>
         </div>
-      </SectionCard>
+      </Panel>
 
-      <div className="grid gap-8 xl:grid-cols-2">
-        <SectionCard className="px-8 py-8">
-          <h3 className="text-[1.9rem] font-black tracking-[-0.04em] text-[#2F4054]">
+
+      <div
+        className="
+          grid
+          gap-4
+          xl:grid-cols-2
+        "
+      >
+        <Panel
+          className="
+            px-5
+            py-5
+          "
+        >
+          <h3
+            className="
+              text-[13px]
+              font-black
+              text-[#103650]
+            "
+          >
             Stored Resumes
           </h3>
-          <p className="mt-2 text-[1rem] font-medium text-[#6A859B]">
-            Available in Resume Only and Resume + JD workflows.
-          </p>
 
-          <div className="mt-8 space-y-4">
+          <div
+            className="
+              mt-4
+              space-y-2
+            "
+          >
             {resumes.length ? (
-              resumes.map((resume) => (
-                <div
-                  key={resume.resume_id}
-                  className="flex items-center justify-between gap-4 rounded-[22px] border border-[#D9E4EC] bg-white/84 px-5 py-4"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-[1.25rem] font-black text-[#2F4054]">
-                      {resume.file_name}
-                    </p>
-                    <p className="mt-1 text-[0.98rem] font-medium text-[#6A859B]">
-                      Saved {formatShortDate(resume.updated_at)}
-                    </p>
-                  </div>
-                  <div className="rounded-full border border-[#D5E2EC] bg-white px-4 py-2 text-[12px] font-black uppercase tracking-[0.18em] text-[#6B88A0]">
-                    Resume
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-[24px] border border-dashed border-[#D2DFE8] px-8 py-14 text-center">
-                <FolderOpen className="mx-auto h-10 w-10 text-[#7C97AB]" />
-                <p className="mt-4 text-[1.4rem] font-black text-[#2F4054]">
-                  No resumes stored yet.
-                </p>
-                <p className="mt-2 text-[1rem] font-medium text-[#6A859B]">
-                  Upload one and it becomes available across ATS workflows.
-                </p>
-              </div>
-            )}
-          </div>
-        </SectionCard>
+              resumes.map(
+                (resume) => (
+                  <div
+                    key={
+                      resume.resume_id
+                    }
+                    className="
+                      flex
+                      items-center
+                      gap-3
+                      rounded-[11px]
+                      border
+                      border-[#DFE6E9]
+                      bg-white/90
+                      px-3
+                      py-3
+                    "
+                  >
+                    <FileText
+                      size={16}
+                      className="
+                        text-[#174B68]
+                      "
+                    />
 
-        <SectionCard className="px-8 py-8">
-          <h3 className="text-[1.9rem] font-black tracking-[-0.04em] text-[#2F4054]">
-            Stored Job Descriptions
-          </h3>
-          <p className="mt-2 text-[1rem] font-medium text-[#6A859B]">
-            Available when running ATS checks with Resume + JD matching.
-          </p>
+                    <div
+                      className="
+                        min-w-0
+                      "
+                    >
+                      <p
+                        className="
+                          truncate
+                          text-[9px]
+                          font-black
+                          text-[#103650]
+                        "
+                      >
+                        {resume.file_name}
+                      </p>
 
-          <div className="mt-8 space-y-4">
-            {jobDescriptions.length ? (
-              jobDescriptions.map((jd) => (
-                <div
-                  key={jd.job_description_id}
-                  className="rounded-[22px] border border-[#D9E4EC] bg-white/84 px-5 py-4"
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <p className="text-[1.25rem] font-black text-[#2F4054]">
-                      {jd.title || "Untitled job description"}
-                    </p>
-                    <div className="rounded-full border border-[#D5E2EC] bg-white px-4 py-2 text-[12px] font-black uppercase tracking-[0.18em] text-[#6B88A0]">
-                      JD
+                      <p
+                        className="
+                          mt-1
+                          text-[7px]
+                          text-[#7892A1]
+                        "
+                      >
+                        {formatShortDate(
+                          resume.updated_at
+                        )}
+                      </p>
                     </div>
                   </div>
-                  <p className="mt-1 text-[0.98rem] font-medium text-[#6A859B]">
-                    Saved {formatShortDate(jd.created_at)}
-                  </p>
-                  {jd.excerpt ? (
-                    <p className="mt-3 text-sm leading-6 text-[#6A859B]">{jd.excerpt}</p>
-                  ) : null}
-                </div>
-              ))
+                )
+              )
             ) : (
-              <div className="rounded-[24px] border border-dashed border-[#D2DFE8] px-8 py-14 text-center">
-                <BriefcaseBusiness className="mx-auto h-10 w-10 text-[#7C97AB]" />
-                <p className="mt-4 text-[1.4rem] font-black text-[#2F4054]">
-                  No job descriptions stored yet.
-                </p>
-                <p className="mt-2 text-[1rem] font-medium text-[#6A859B]">
-                  Add a JD here and it becomes reusable inside Resume + JD analysis.
-                </p>
-              </div>
+              <p
+                className="
+                  py-8
+                  text-center
+                  text-[8px]
+                  text-[#7892A1]
+                "
+              >
+                No resumes stored yet.
+              </p>
             )}
           </div>
-        </SectionCard>
+        </Panel>
+
+
+        <Panel
+          className="
+            px-5
+            py-5
+          "
+        >
+          <h3
+            className="
+              text-[13px]
+              font-black
+              text-[#103650]
+            "
+          >
+            Stored Job Descriptions
+          </h3>
+
+          <div
+            className="
+              mt-4
+              space-y-2
+            "
+          >
+            {jobDescriptions.length ? (
+              jobDescriptions.map(
+                (jd) => (
+                  <div
+                    key={
+                      jd.job_description_id
+                    }
+                    className="
+                      flex
+                      items-center
+                      gap-3
+                      rounded-[11px]
+                      border
+                      border-[#DFE6E9]
+                      bg-white/90
+                      px-3
+                      py-3
+                    "
+                  >
+                    <BriefcaseBusiness
+                      size={16}
+                      className="
+                        text-[#C58417]
+                      "
+                    />
+
+                    <div
+                      className="
+                        min-w-0
+                      "
+                    >
+                      <p
+                        className="
+                          truncate
+                          text-[9px]
+                          font-black
+                          text-[#103650]
+                        "
+                      >
+                        {jd.title ||
+                          "Untitled job description"}
+                      </p>
+
+                      <p
+                        className="
+                          mt-1
+                          text-[7px]
+                          text-[#7892A1]
+                        "
+                      >
+                        {formatShortDate(
+                          jd.created_at
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )
+              )
+            ) : (
+              <p
+                className="
+                  py-8
+                  text-center
+                  text-[8px]
+                  text-[#7892A1]
+                "
+              >
+                No job descriptions stored yet.
+              </p>
+            )}
+          </div>
+        </Panel>
       </div>
     </div>
   );
 }
 
-function BillingSection({ totalPoints, estimatedCost, ledger, subData }) {
+
+/* =========================================================
+   BILLING
+   ========================================================= */
+
+function BillingSection({
+  totalPoints,
+  estimatedCost,
+  ledger,
+  subData,
+}) {
   return (
-    <div className="space-y-8">
-      <SectionCard className="px-10 py-8">
-        <p className="text-[13px] font-black uppercase tracking-[0.28em] text-[#6B88A0]">
-          Platform Metrics
+    <div
+      className="
+        space-y-4
+      "
+    >
+      <Panel
+        className="
+          px-6
+          py-6
+        "
+      >
+        <p
+          className="
+            text-[8px]
+            font-black
+            uppercase
+            tracking-[0.25em]
+            text-[#B5771A]
+          "
+        >
+          Workspace Usage
         </p>
-        <h2 className="mt-3 text-[2.25rem] font-black tracking-[-0.04em] text-[#2F4054]">
-          Usage & Billing Ledger
+
+        <h2
+          className="
+            mt-2
+            font-serif
+            text-[30px]
+            font-semibold
+            text-[#103650]
+          "
+          style={{
+            fontFamily:
+              "Georgia, 'Times New Roman', serif",
+          }}
+        >
+          Usage & Billing
         </h2>
-        <p className="mt-2 text-[1.05rem] font-medium text-[#6A859B]">
-          Track AI tokens remaining, subscription tier, and overall billing across ATS scans.
-        </p>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <SmallMetricCard
-            label="AI Tokens Remaining"
-            value={(subData?.tokensRemaining ?? 30000).toLocaleString()}
-            subtext="CareerSense Reverse Balance"
+
+        <div
+          className="
+            mt-5
+            grid
+            gap-3
+            sm:grid-cols-2
+            xl:grid-cols-4
+          "
+        >
+          <OverviewStatCard
+            title="AI Tokens Remaining"
+            value={Number(
+              subData?.tokensRemaining ?? 30000
+            ).toLocaleString()}
+            footer="CareerSense Reverse Balance"
+            icon={Bolt}
+            tone="blue"
           />
-          <SmallMetricCard
-            label="Lifetime tokens used"
+
+          <OverviewStatCard
+            title="Lifetime tokens used"
             value={(totalPoints || 0).toLocaleString()}
-            subtext="Total Platform Consumption"
+            footer="Total Platform Consumption"
+            icon={Gauge}
+            tone="gold"
           />
-          <SmallMetricCard
-            label="Lifetime bills"
-            value={formatUsd(estimatedCost)}
-            subtext="Bills are managed by careersenseAi, you dont need to pay"
+
+          <OverviewStatCard
+            title="Lifetime bills"
+            value={formatUsd(
+              estimatedCost
+            )}
+            footer="Bills are managed by careersenseAi, you dont need to pay"
+            icon={Bolt}
+            tone="green"
           />
-          <SmallMetricCard
-            label="Active Operational Tier"
-            value={`${(subData?.plan || "free").toUpperCase()} Plan`}
-            subtext="CareerSense Subscription"
+
+          <a
             href="https://careersenseai.com/pricing"
-          />
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block transition-transform hover:-translate-y-0.5"
+          >
+            <OverviewStatCard
+              title="Active Operational Tier"
+              value={`${(
+                subData?.plan ||
+                "free"
+              ).toUpperCase()} Plan`}
+              footer="CareerSense Subscription ↗"
+              icon={Crown}
+              tone="gold"
+            />
+          </a>
         </div>
-      </SectionCard>
+      </Panel>
 
-      <SectionCard className="px-10 py-8">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h3 className="text-[1.9rem] font-black tracking-[-0.04em] text-[#2F4054]">
-              Transaction History
-            </h3>
-            <p className="mt-2 text-[1rem] font-medium text-[#6A859B]">
-              Estimated ATS compute ledger built from saved reports and stored sources.
-            </p>
-          </div>
-          <div className="rounded-full border border-[#CFE0EC] bg-white px-4 py-2 text-[12px] font-black uppercase tracking-[0.18em] text-[#6B88A0]">
-            System Logs
-          </div>
-        </div>
 
-        <div className="mt-8 overflow-hidden rounded-[24px] border border-[#D7E3EC] bg-white/84">
-          <div className="grid grid-cols-[1.35fr_1.25fr_1fr_0.6fr] gap-4 border-b border-[#E2EAF1] px-6 py-4 text-[12px] font-black uppercase tracking-[0.2em] text-[#6B88A0]">
+      <Panel
+        className="
+          px-5
+          py-5
+        "
+      >
+        <h3
+          className="
+            text-[13px]
+            font-black
+            text-[#103650]
+          "
+        >
+          Transaction History
+        </h3>
+
+        <div
+          className="
+            mt-4
+            overflow-hidden
+            rounded-[12px]
+            border
+            border-[#E0E6E9]
+          "
+        >
+          <div
+            className="
+              grid
+              grid-cols-[1.2fr_1fr_1fr_.4fr]
+              gap-3
+              bg-[#F7F5F0]/94
+              px-4
+              py-3
+              text-[7px]
+              font-black
+              uppercase
+              tracking-[0.15em]
+              text-[#7892A1]
+            "
+          >
             <span>Operation</span>
             <span>Resource</span>
-            <span>Timestamp</span>
-            <span className="text-right">Units</span>
+            <span>Date</span>
+
+            <span
+              className="
+                text-right
+              "
+            >
+              Units
+            </span>
           </div>
 
-          <div className="divide-y divide-[#E8EEF3]">
-            {ledger.length ? (
-              ledger.map((item) => (
+
+          {ledger.length ? (
+            ledger.map(
+              (item) => (
                 <div
                   key={item.id}
-                  className="grid grid-cols-[1.35fr_1.25fr_1fr_0.6fr] gap-4 px-6 py-5"
+                  className="
+                    grid
+                    grid-cols-[1.2fr_1fr_1fr_.4fr]
+                    gap-3
+                    border-t
+                    border-[#E7EBED]
+                    bg-white/90
+                    px-4
+                    py-3
+                    text-[8px]
+                    text-[#536F7F]
+                  "
                 >
-                  <div>
-                    <p className="text-[1.08rem] font-black text-[#2F4054]">
-                      {item.operation}
-                    </p>
-                    <p className="mt-1 text-sm font-medium text-[#6A859B]">
-                      {item.detail}
-                    </p>
-                  </div>
-                  <p className="text-[1rem] font-medium text-[#6A859B]">{item.resource}</p>
-                  <p className="text-[1rem] font-medium text-[#6A859B]">{formatDate(item.timestamp)}</p>
-                  <p className="text-right text-[1.08rem] font-black text-[#2F4054]">
-                    {formatPoints(item.units)}
-                  </p>
+                  <strong
+                    className="
+                      text-[#103650]
+                    "
+                  >
+                    {item.operation}
+                  </strong>
+
+                  <span>
+                    {item.resource}
+                  </span>
+
+                  <span>
+                    {formatDate(
+                      item.timestamp
+                    )}
+                  </span>
+
+                  <strong
+                    className="
+                      text-right
+                      text-[#103650]
+                    "
+                  >
+                    {formatPoints(
+                      item.units
+                    )}
+                  </strong>
                 </div>
-              ))
-            ) : (
-              <div className="px-6 py-12 text-center text-[1rem] font-medium text-[#6A859B]">
-                No ATS activity logged yet.
-              </div>
-            )}
-          </div>
+              )
+            )
+          ) : (
+            <div
+              className="
+                bg-white/80
+                py-12
+                text-center
+                text-[8px]
+                text-[#7892A1]
+              "
+            >
+              No ATS activity logged yet.
+            </div>
+          )}
         </div>
-      </SectionCard>
+      </Panel>
     </div>
   );
 }
 
-function ProfileSection({ profileDraft }) {
+
+/* =========================================================
+   PROFILE
+   ========================================================= */
+
+function ProfileSection({
+  profile,
+}) {
+  const fields = [
+    [
+      "Full Name",
+      profile.fullName,
+    ],
+    [
+      "Email",
+      profile.email,
+    ],
+    [
+      "Phone",
+      profile.phone,
+    ],
+    [
+      "Location",
+      profile.location,
+    ],
+    [
+      "LinkedIn / Portfolio",
+      profile.linkedin,
+    ],
+    [
+      "Current Job Title",
+      profile.currentTitle,
+    ],
+  ];
+
+
   return (
-    <SectionCard className="px-10 py-8">
-      <h2 className="text-[2.25rem] font-black tracking-[-0.04em] text-[#2F4054]">
-        Profile Settings (Read-Only)
-      </h2>
-      <p className="mt-2 max-w-4xl text-[1.05rem] font-medium text-[#6A859B]">
-        Below is your active workspace profile synced from your master account.
+    <Panel
+      className="
+        px-6
+        py-6
+      "
+    >
+      <p
+        className="
+          text-[8px]
+          font-black
+          uppercase
+          tracking-[0.25em]
+          text-[#B5771A]
+        "
+      >
+        Personal Details
       </p>
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-2">
-        <ReadOnlyField label="Full Name" value={profileDraft.fullName || "—"} />
-        <ReadOnlyField label="Email Address" value={profileDraft.email || "—"} />
-        <ReadOnlyField label="Phone Number" value={profileDraft.phone || "—"} />
-        <ReadOnlyField label="Location / City" value={profileDraft.location || "—"} />
-        <ReadOnlyField label="LinkedIn / Portfolio" value={profileDraft.linkedin || "—"} />
-        <ReadOnlyField label="Current Job Title" value={profileDraft.currentTitle || "—"} />
+      <h2
+        className="
+          mt-2
+          font-serif
+          text-[30px]
+          font-semibold
+          text-[#103650]
+        "
+        style={{
+          fontFamily:
+            "Georgia, 'Times New Roman', serif",
+        }}
+      >
+        Profile Settings
+      </h2>
+
+
+      <div
+        className="
+          mt-6
+          grid
+          gap-4
+          md:grid-cols-2
+        "
+      >
+        {fields.map(
+          ([label, value]) => (
+            <div
+              key={label}
+            >
+              <p
+                className="
+                  text-[7px]
+                  font-black
+                  uppercase
+                  tracking-[0.18em]
+                  text-[#7892A1]
+                "
+              >
+                {label}
+              </p>
+
+              <div
+                className="
+                  mt-2
+                  flex
+                  h-[46px]
+                  items-center
+                  rounded-[10px]
+                  border
+                  border-[#DCE4E7]
+                  bg-[#FAFCFC]/92
+                  px-4
+                  text-[9px]
+                  font-bold
+                  text-[#103650]
+                  backdrop-blur-[3px]
+                "
+              >
+                {value || "—"}
+              </div>
+            </div>
+          )
+        )}
       </div>
 
-      <div className="mt-8 flex justify-end">
+
+      <div
+        className="
+          mt-6
+          flex
+          justify-end
+        "
+      >
         <a
           href="https://careersenseai.com/dashboard?tab=My%20Profile"
           target="_blank"
           rel="noreferrer"
-          className="inline-flex h-[58px] items-center justify-center gap-2 rounded-[20px] bg-[#2F4054] px-8 text-[1.05rem] font-black text-white shadow-sm transition hover:bg-[#1C2836] active:scale-95"
+          className="
+            flex
+            h-[42px]
+            items-center
+            gap-2
+            rounded-[9px]
+            bg-[#083B5B]
+            px-5
+            text-[9px]
+            font-black
+            text-white
+          "
         >
-          Edit Profile ↗
+          Edit Profile
+
+          <ArrowRight size={13} />
         </a>
       </div>
-    </SectionCard>
+    </Panel>
   );
 }
 
-function ReadOnlyField({ label, value }) {
+
+/* =========================================================
+   MOBILE DRAWER
+   ========================================================= */
+
+function MobileDrawer({
+  open,
+  onClose,
+  activeSection,
+  onSelectSection,
+}) {
   return (
-    <label className="block">
-      <span className="text-[12px] font-black uppercase tracking-[0.24em] text-[#6B88A0]">
-        {label}
-      </span>
-      <div className="mt-3 flex h-[58px] w-full items-center rounded-[20px] border border-[#CFE0EC] bg-slate-50 px-5 text-[1.05rem] font-bold text-[#2F4054]">
-        {value}
-      </div>
-    </label>
+    <AnimatePresence>
+      {open && (
+        <div
+          className="
+            fixed
+            inset-0
+            z-[9999]
+            lg:hidden
+          "
+        >
+          <motion.div
+            initial={{
+              opacity: 0,
+            }}
+            animate={{
+              opacity: 1,
+            }}
+            exit={{
+              opacity: 0,
+            }}
+            onClick={onClose}
+            className="
+              absolute
+              inset-0
+              bg-[#062F49]/55
+              backdrop-blur-sm
+            "
+          />
+
+          <motion.aside
+            initial={{
+              x: "-100%",
+            }}
+            animate={{
+              x: 0,
+            }}
+            exit={{
+              x: "-100%",
+            }}
+            transition={{
+              type: "spring",
+              damping: 28,
+              stiffness: 240,
+            }}
+            className="
+              relative
+              z-10
+              flex
+              h-full
+              w-[285px]
+              flex-col
+              bg-[#062F49]
+              p-5
+              text-white
+              shadow-2xl
+            "
+          >
+            <div
+              className="
+                flex
+                items-center
+                justify-between
+              "
+            >
+              <p
+                className="
+                  font-serif
+                  text-[20px]
+                  font-semibold
+                "
+              >
+                CareerSense
+              </p>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="
+                  flex
+                  h-9
+                  w-9
+                  items-center
+                  justify-center
+                  rounded-lg
+                  border
+                  border-white/15
+                "
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+
+            <nav
+              className="
+                mt-8
+                space-y-2
+              "
+            >
+              {SECTION_ITEMS.map(
+                ({
+                  id,
+                  label,
+                  icon: Icon,
+                }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      onSelectSection(
+                        id
+                      );
+
+                      onClose();
+                    }}
+                    className={`
+                      flex
+                      w-full
+                      items-center
+                      gap-3
+                      rounded-[11px]
+                      px-4
+                      py-3
+                      text-[10px]
+                      font-bold
+
+                      ${
+                        activeSection ===
+                        id
+                          ? "bg-[#D5B15B]/25 text-white"
+                          : "text-[#C5D5DE]"
+                      }
+                    `}
+                  >
+                    <Icon size={17} />
+
+                    {label}
+                  </button>
+                )
+              )}
+            </nav>
+          </motion.aside>
+        </div>
+      )}
+    </AnimatePresence>
   );
 }
 
-function Field({ label, value, onChange, placeholder }) {
-  return (
-    <label className="block">
-      <span className="text-[12px] font-black uppercase tracking-[0.24em] text-[#6B88A0]">
-        {label}
-      </span>
-      <input
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        className="mt-3 h-[58px] w-full rounded-[20px] border border-[#CFE0EC] bg-white px-5 text-[1.05rem] font-medium text-[#2F4054] outline-none transition focus:border-[#AFC8DB] focus:ring-2 focus:ring-[#DCE7F1]"
-      />
-    </label>
-  );
-}
+
+/* =========================================================
+   MAIN DASHBOARD
+   ========================================================= */
+
+const DASHBOARD_TYPE_STYLES = `
+  .dashboard-type {
+    --dashboard-text-caption: 0.75rem;
+    --dashboard-text-secondary: 0.8125rem;
+    --dashboard-text-body: 0.875rem;
+    --dashboard-text-emphasis: 1rem;
+    font-kerning: normal;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+
+  .dashboard-type [class~="text-[7px]"],
+  .dashboard-type [class~="text-[7.5px]"],
+  .dashboard-type [class~="text-[8px]"] {
+    font-size: var(--dashboard-text-caption) !important;
+    line-height: 1.4;
+  }
+
+  .dashboard-type [class~="text-[8.5px]"],
+  .dashboard-type [class~="text-[9px]"],
+  .dashboard-type [class~="text-[9.5px]"] {
+    font-size: var(--dashboard-text-secondary) !important;
+    line-height: 1.45;
+  }
+
+  .dashboard-type [class~="text-[10px]"],
+  .dashboard-type [class~="text-[10.5px]"],
+  .dashboard-type [class~="text-[11px]"] {
+    font-size: var(--dashboard-text-body) !important;
+    line-height: 1.5;
+  }
+
+  .dashboard-type [class~="text-[12px]"],
+  .dashboard-type [class~="text-[13px]"],
+  .dashboard-type [class~="text-[14px]"] {
+    font-size: var(--dashboard-text-emphasis) !important;
+    line-height: 1.5;
+  }
+
+  .dashboard-type table,
+  .dashboard-type [data-dashboard-number] {
+    font-variant-numeric: tabular-nums;
+  }
+`;
 
 function Dashboard() {
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [reports, setReports] = useState([]);
-  const [resumes, setResumes] = useState([]);
-  const [jobDescriptions, setJobDescriptions] = useState([]);
-  const [status, setStatus] = useState("loading");
-  const [error, setError] = useState("");
-  const [toast, setToast] = useState("");
-  const [toastVariant, setToastVariant] = useState("success");
-  const [profileDraft, setProfileDraft] = useState(() => readStoredProfile());
-  const [profile, setProfile] = useState(() => readStoredProfile());
-  const [isUploadingResume, setIsUploadingResume] = useState(false);
-  const [isUploadingJd, setIsUploadingJd] = useState(false);
-  const { user } = useUser();
-  const [subData, setSubData] = useState({ plan: "free", tokensRemaining: 30000 });
-  const [serverLedgerLogs, setServerLedgerLogs] = useState([]);
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const resumeInputRef = useRef(null);
-  const jdInputRef = useRef(null);
+  const [
+    searchParams,
+    setSearchParams,
+  ] = useSearchParams();
 
-  const activeSection = searchParams.get("section") || "overview";
-  const activeSectionMeta =
-    SECTION_ITEMS.find((item) => item.id === activeSection) || SECTION_ITEMS[0];
+  const { user } =
+    useUser();
+
+  const [
+    reports,
+    setReports,
+  ] = useState(() => getCachedItems(REPORTS_CACHE_KEY));
+
+  const [
+    resumes,
+    setResumes,
+  ] = useState(() => getCachedItems(RESUMES_CACHE_KEY));
+
+  const [
+    jobDescriptions,
+    setJobDescriptions,
+  ] = useState(() => getCachedItems(JD_CACHE_KEY));
+
+  const [
+    status,
+    setStatus,
+  ] = useState(() => {
+    const cachedR = getCachedItems(REPORTS_CACHE_KEY);
+    const cachedRes = getCachedItems(RESUMES_CACHE_KEY);
+    return cachedR.length > 0 || cachedRes.length > 0 ? "success" : "loading";
+  });
+
+  const [
+    error,
+    setError,
+  ] = useState("");
+
+  const [
+    toast,
+    setToast,
+  ] = useState("");
+
+  const [
+    toastVariant,
+    setToastVariant,
+  ] = useState(
+    "success"
+  );
+
+
+  const [
+    profile,
+    setProfile,
+  ] = useState(() =>
+    readStoredProfile()
+  );
+
+
+  const [
+    isUploadingResume,
+    setIsUploadingResume,
+  ] = useState(false);
+
+
+  const [
+    isUploadingJd,
+    setIsUploadingJd,
+  ] = useState(false);
+
+
+  const [
+    subData,
+    setSubData,
+  ] = useState({
+    plan: "free",
+    tokensRemaining: 30000,
+  });
+
+
+  const [
+    serverLedgerLogs,
+    setServerLedgerLogs,
+  ] = useState([]);
+
+
+  const [
+    mobileNavOpen,
+    setMobileNavOpen,
+  ] = useState(false);
+
+  const [
+    dashboardTourOpen,
+    setDashboardTourOpen,
+  ] = useState(false);
+
+
+  const resumeInputRef =
+    useRef(null);
+
+  const jdInputRef =
+    useRef(null);
+
+
+  const activeSection =
+    searchParams.get(
+      "section"
+    ) || "overview";
+
+
+  /* =======================================================
+     SUBSCRIPTION
+     ======================================================= */
 
   useEffect(() => {
     if (!user?.id) return;
-    const fetchSub = async () => {
+
+    async function fetchSubscription() {
       try {
-        const apiBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE_URL || "https://server.datasenseai.com";
-        const backendUrl = apiBase.replace(/\/careersense\/ats\/?$/, "");
-        const res = await fetch(`${backendUrl}/careersense/subscription/status?clerkId=${user.id}`);
-        const data = await res.json();
-        if (data.success) {
-          setSubData({ plan: data.plan || "free", tokensRemaining: data.tokensRemaining ?? 30000 });
+        const apiBase =
+          import.meta.env
+            .VITE_API_URL ||
+          import.meta.env
+            .VITE_BACKEND_URL ||
+          import.meta.env
+            .VITE_API_BASE_URL ||
+          "https://server.datasenseai.com";
+
+
+        const backendUrl =
+          apiBase.replace(
+            /\/careersense\/ats\/?$/,
+            ""
+          );
+
+
+        const statusResponse =
+          await fetch(
+            `${backendUrl}/careersense/subscription/status?clerkId=${user.id}`
+          );
+
+
+        const statusData =
+          await statusResponse.json();
+
+
+        if (
+          statusData.success
+        ) {
+          setSubData({
+            plan:
+              statusData.plan ||
+              "free",
+
+            tokensRemaining:
+              statusData.tokensRemaining ?? 30000,
+          });
         }
 
-        const ledgerRes = await fetch(`${backendUrl}/careersense/subscription/ledger?clerkId=${user.id}`);
-        if (ledgerRes.ok) {
-          const ledgerData = await ledgerRes.json();
-          if (ledgerData.ledger && Array.isArray(ledgerData.ledger)) {
-            setServerLedgerLogs(ledgerData.ledger);
+
+        const ledgerResponse =
+          await fetch(
+            `${backendUrl}/careersense/subscription/ledger?clerkId=${user.id}`
+          );
+
+
+        if (
+          ledgerResponse.ok
+        ) {
+          const ledgerData =
+            await ledgerResponse.json();
+
+
+          if (
+            Array.isArray(
+              ledgerData.ledger
+            )
+          ) {
+            setServerLedgerLogs(
+              ledgerData.ledger
+            );
           }
         }
       } catch (err) {
-        console.error("Error fetching subscription/ledger in Dashboard:", err);
+        console.error(
+          "Subscription load failed:",
+          err
+        );
       }
-    };
-    fetchSub();
+    }
+
+    fetchSubscription();
   }, [user?.id]);
 
-  const loadWorkspace = async () => {
-    setStatus("loading");
-    setError("");
-    try {
-      const [resumeResult, reportResult, jdResult] = await Promise.allSettled([
-        withTimeout(getResumes()),
-        withTimeout(getSavedReports()),
-        withTimeout(getJobDescriptions()),
-      ]);
 
-      setResumes(
-        resumeResult.status === "fulfilled" ? resumeResult.value.data || [] : []
-      );
-      setReports(
-        reportResult.status === "fulfilled" ? reportResult.value.data || [] : []
-      );
-      setJobDescriptions(
-        jdResult.status === "fulfilled" ? jdResult.value.data || [] : []
-      );
+  /* =======================================================
+     WORKSPACE
+     ======================================================= */
 
-      const failedSources = [
-        resumeResult.status === "rejected" ? "resumes" : null,
-        reportResult.status === "rejected" ? "reports" : null,
-        jdResult.status === "rejected" ? "job descriptions" : null,
-      ].filter(Boolean);
-
-      if (failedSources.length > 0) {
-        setToast(`Some workspace data could not be loaded: ${failedSources.join(", ")}.`);
-        setToastVariant("error");
+  const loadWorkspace =
+    async (isBackground = false) => {
+      if (!isBackground && reports.length === 0 && resumes.length === 0) {
+        setStatus("loading");
       }
 
-      setStatus("success");
-    } catch (requestError) {
-      setError(
-        requestError?.response?.data?.detail ||
-        "Unable to load the CareerSense workspace right now."
-      );
-      setStatus("error");
-    }
-  };
+      setError("");
 
-  const loadMasterProfile = async () => {
-    try {
-      const apiBase = (import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/careersense/ats")
-        .replace(/\/careersense\/ats\/?$/, "");
-      const res = await apiClient.get(`${apiBase}/careersense/profile`);
-      const p = res.data?.profile || res.data;
-      if (p && (p.fullName || p.email || p.name || p.currentJobTitle)) {
-        const mapped = {
-          fullName: p.fullName || p.name || "",
-          email: p.email || "",
-          phone: p.phone || "",
-          location: p.location || "",
-          linkedin: p.linkedinPortfolio || p.linkedin || "",
-          currentTitle: p.currentJobTitle || p.currentRole || "",
-        };
-        setProfileDraft(mapped);
-        setProfile(mapped);
-        if (typeof window !== "undefined") {
-          window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(mapped));
+      try {
+        const [
+          resumeResult,
+          reportResult,
+          jdResult,
+        ] =
+          await Promise.allSettled([
+            withTimeout(
+              getResumes()
+            ),
+
+            withTimeout(
+              getSavedReports()
+            ),
+
+            withTimeout(
+              getJobDescriptions()
+            ),
+          ]);
+
+        if (
+          resumeResult.status === "fulfilled" &&
+          Array.isArray(resumeResult.value?.data)
+        ) {
+          setResumes(resumeResult.value.data);
+          setCachedItems(RESUMES_CACHE_KEY, resumeResult.value.data);
+        }
+
+        if (
+          reportResult.status === "fulfilled" &&
+          Array.isArray(reportResult.value?.data)
+        ) {
+          setReports(reportResult.value.data);
+          setCachedItems(REPORTS_CACHE_KEY, reportResult.value.data);
+        }
+
+        if (
+          jdResult.status === "fulfilled" &&
+          Array.isArray(jdResult.value?.data)
+        ) {
+          setJobDescriptions(jdResult.value.data);
+          setCachedItems(JD_CACHE_KEY, jdResult.value.data);
+        }
+
+        setStatus("success");
+      } catch (requestError) {
+        console.warn("Workspace load warning:", requestError);
+        if (reports.length === 0 && resumes.length === 0) {
+          setError(
+            requestError?.response?.data?.detail ||
+              "Unable to load the CareerSense workspace."
+          );
+          setStatus("error");
+        } else {
+          setStatus("success");
         }
       }
-    } catch (err) {
-      console.warn("Could not fetch master profile for ATS:", err?.message || err);
-    }
-  };
+    };
+
+
+  /* =======================================================
+     PROFILE
+     ======================================================= */
+
+  const loadMasterProfile =
+    async () => {
+      try {
+        const apiBase =
+          (
+            import.meta.env
+              .VITE_API_BASE_URL ||
+            "http://localhost:4000/careersense/ats"
+          ).replace(
+            /\/careersense\/ats\/?$/,
+            ""
+          );
+
+
+        const response =
+          await apiClient.get(
+            `${apiBase}/careersense/profile`
+          );
+
+
+        const data =
+          response.data
+            ?.profile ||
+          response.data;
+
+
+        if (!data) return;
+
+
+        const mapped = {
+          fullName:
+            data.fullName ||
+            data.name ||
+            "",
+
+          email:
+            data.email ||
+            "",
+
+          phone:
+            data.phone ||
+            "",
+
+          location:
+            data.location ||
+            "",
+
+          linkedin:
+            data.linkedinPortfolio ||
+            data.linkedin ||
+            "",
+
+          currentTitle:
+            data.currentJobTitle ||
+            data.currentRole ||
+            "",
+        };
+
+
+        setProfile(
+          mapped
+        );
+
+
+        window.localStorage.setItem(
+          PROFILE_STORAGE_KEY,
+          JSON.stringify(
+            mapped
+          )
+        );
+      } catch (err) {
+        console.warn(
+          "Profile load failed:",
+          err
+        );
+      }
+    };
+
 
   useEffect(() => {
-    loadWorkspace();
+    loadWorkspace(reports.length > 0 || resumes.length > 0);
     loadMasterProfile();
-  }, []);
+  }, [user?.id]);
 
-  const ledger = useMemo(() => {
-    if (serverLedgerLogs.length > 0) {
-      const atsLogs = serverLedgerLogs
-        .filter(log => log.amount < 0 && isAtsCheckerLedgerService(log.serviceId));
 
-      if (atsLogs.length > 0) {
-        return atsLogs.map((log, index) => {
-          const matchedReport = reports[index] || reports.find(r => Math.abs(new Date(r.created_at).getTime() - new Date(log.createdAt).getTime()) < 300000);
-          const resourceName = matchedReport
-            ? (matchedReport.candidate_name || matchedReport.resume_file_name)
-            : (log.metadata?.resume_name || log.metadata?.fileName || (reports[0]?.resume_file_name) || "Resume Analysis");
+  /* =======================================================
+     LEDGER
+     ======================================================= */
 
-          return {
-            id: log._id || `log-${index}`,
-            operation: (matchedReport?.has_job_description || log.description?.includes("JD")) ? "ATS + JD Report" : "ATS Report",
-            resource: resourceName,
-            timestamp: log.createdAt,
-            units: Math.abs(log.amount),
-            detail: log.description || (matchedReport?.has_job_description ? "Saved ATS report with job description alignment" : "Saved ATS report generated from resume analysis")
-          };
-        });
+  const ledger =
+    useMemo(() => {
+      if (
+        serverLedgerLogs.length
+      ) {
+        const filtered =
+          serverLedgerLogs.filter(
+            (log) =>
+              log.amount < 0 &&
+              (
+                !log.serviceId ||
+                log.serviceId
+                  .toLowerCase()
+                  .includes(
+                    "ats"
+                  ) ||
+                log.serviceId ===
+                  "career_tool"
+              )
+          );
+
+
+        if (
+          filtered.length
+        ) {
+          return filtered.map(
+            (
+              log,
+              index
+            ) => ({
+              id:
+                log._id ||
+                `log-${index}`,
+
+              operation:
+                log.description
+                  ?.includes(
+                    "JD"
+                  )
+                  ? "ATS + JD Report"
+                  : "ATS Report",
+
+              resource:
+                log.metadata
+                  ?.resume_name ||
+                log.metadata
+                  ?.fileName ||
+                reports[
+                  index
+                ]
+                  ?.resume_file_name ||
+                "Resume Analysis",
+
+              timestamp:
+                log.createdAt,
+
+              units:
+                Math.abs(
+                  log.amount
+                ),
+
+              detail:
+                log.description ||
+                "CareerSense ATS analysis",
+            })
+          );
+        }
       }
-    }
 
-    const reportEntries = reports.map((report) => ({
-      id: `report-${report.report_id}`,
-      operation: report.has_job_description ? "ATS + JD Report" : "ATS Report",
-      resource: report.candidate_name || report.resume_file_name,
-      timestamp: report.created_at,
-      units: getActualReportTokens(report),
-      detail: report.has_job_description ? "Saved ATS report with job description alignment" : "Saved ATS report generated from resume analysis",
-    }));
 
-    const resumeEntries = resumes.map((resume) => ({
-      id: `resume-${resume.resume_id}`,
-      operation: "Resume Upload",
-      resource: resume.file_name,
-      timestamp: resume.updated_at,
-      units: estimateResumePoints(),
-      detail: "Stored in Data Sources for reuse",
-    }));
+      const reportRows =
+        reports.map(
+          (report) => ({
+            id:
+              `report-${report.report_id}`,
 
-    const jdEntries = jobDescriptions.map((jd) => ({
-      id: `jd-${jd.job_description_id}`,
-      operation: "Job Description Upload",
-      resource: jd.title || "Untitled job description",
-      timestamp: jd.created_at,
-      units: estimateJdPoints(),
-      detail: "Stored in Data Sources for Resume + JD workflows",
-    }));
+            operation:
+              report.has_job_description
+                ? "ATS + JD Report"
+                : "ATS Report",
 
-    return [...reportEntries, ...resumeEntries, ...jdEntries].sort(
-      (left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime()
+            resource:
+              report.candidate_name ||
+              report.resume_file_name,
+
+            timestamp:
+              report.created_at,
+
+            units:
+              getActualReportTokens(
+                report
+              ),
+
+            detail:
+              "CareerSense ATS report",
+          })
+        );
+
+
+      const resumeRows =
+        resumes.map(
+          (resume) => ({
+            id:
+              `resume-${resume.resume_id}`,
+
+            operation:
+              "Resume Upload",
+
+            resource:
+              resume.file_name,
+
+            timestamp:
+              resume.updated_at,
+
+            units:
+              estimateResumePoints(),
+
+            detail:
+              "Stored resume",
+          })
+        );
+
+
+      const jdRows =
+        jobDescriptions.map(
+          (jd) => ({
+            id:
+              `jd-${jd.job_description_id}`,
+
+            operation:
+              "Job Description Upload",
+
+            resource:
+              jd.title ||
+              "Untitled job description",
+
+            timestamp:
+              jd.created_at,
+
+            units:
+              estimateJdPoints(),
+
+            detail:
+              "Stored job description",
+          })
+        );
+
+
+      return [
+        ...reportRows,
+        ...resumeRows,
+        ...jdRows,
+      ].sort(
+        (a, b) =>
+          new Date(
+            b.timestamp
+          ) -
+          new Date(
+            a.timestamp
+          )
+      );
+    }, [
+      serverLedgerLogs,
+      reports,
+      resumes,
+      jobDescriptions,
+    ]);
+
+
+  const totalPoints =
+    useMemo(
+      () =>
+        ledger.reduce(
+          (
+            sum,
+            item
+          ) =>
+            sum +
+            Number(
+              item.units ||
+                0
+            ),
+          0
+        ),
+      [ledger]
     );
-  }, [serverLedgerLogs, reports, resumes, jobDescriptions]);
 
-  const totalPoints = useMemo(
-    () => ledger.reduce((total, item) => total + item.units, 0),
-    [ledger]
-  );
 
-  const estimatedCost = totalPoints / 20000;
+  const estimatedCost =
+    totalPoints /
+    POINTS_PER_USD;
 
-  const profileCompletion = useMemo(() => {
-    const filled = Object.values(profile).filter(
-      (value) => typeof value === "string" && value.trim()
-    ).length;
-    return Math.round((filled / Object.keys(profile).length) * 100);
-  }, [profile]);
 
-  const handleSectionChange = (sectionId) => {
-    setSearchParams({ section: sectionId });
+  /* =======================================================
+     HANDLERS
+     ======================================================= */
+
+  const handleSectionChange =
+    (section) => {
+      setSearchParams({
+        section,
+      });
+    };
+
+
+  const pushToast = (
+    message,
+    variant = "success"
+  ) => {
+    setToast(
+      message
+    );
+
+    setToastVariant(
+      variant
+    );
   };
 
-  const handleProfileChange = (key, value) => {
-    setProfileDraft((current) => ({ ...current, [key]: value }));
-  };
 
-  const pushToast = (message, variant = "success") => {
-    setToast(message);
-    setToastVariant(variant);
-  };
+  const handleResumeUpload =
+    async (file) => {
+      if (!file) return;
 
-  const handleProfileSave = () => {
-    setProfile(profileDraft);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profileDraft));
-    }
-    pushToast("Profile settings saved.", "success");
-  };
 
-  const handleResumeUpload = async (file) => {
-    if (!file) {
-      return;
-    }
+      const formData =
+        new FormData();
 
-    const formData = new FormData();
-    formData.append("file", file);
 
-    setIsUploadingResume(true);
-    try {
-      await uploadResume(formData);
-      pushToast("Resume uploaded to Data Sources.", "success");
-      await loadWorkspace();
-    } catch (requestError) {
-      pushToast(
-        requestError?.response?.data?.detail || "Resume upload failed.",
-        "error"
+      formData.append(
+        "file",
+        file
       );
-    } finally {
-      setIsUploadingResume(false);
-      if (resumeInputRef.current) {
-        resumeInputRef.current.value = "";
-      }
-    }
-  };
 
-  const handleJdUpload = async (file) => {
-    if (!file) {
-      return;
-    }
 
-    const formData = new FormData();
-    formData.append("file", file);
-
-    setIsUploadingJd(true);
-    try {
-      await uploadJobDescriptionFile(formData);
-      pushToast("Job description uploaded to Data Sources.", "success");
-      await loadWorkspace();
-    } catch (requestError) {
-      pushToast(
-        requestError?.response?.data?.detail || "Job description upload failed.",
-        "error"
+      setIsUploadingResume(
+        true
       );
-    } finally {
-      setIsUploadingJd(false);
-      if (jdInputRef.current) {
-        jdInputRef.current.value = "";
-      }
-    }
-  };
 
-  const sectionSubtitleMap = {
-    overview: "Track ATS activity, saved reports, data sources, billing estimates, and profile readiness from one place.",
-    reports: "Access every ATS report that has been generated and saved to your workspace.",
-    sources: "Store and reuse resumes and job descriptions without uploading them again.",
-    billing: "Monitor Career Sense Points and estimated billing derived from ATS operations.",
-    profile: "Save your basic workspace profile details for future sessions.",
-  };
+
+      try {
+        await uploadResume(
+          formData
+        );
+
+
+        pushToast(
+          "Resume uploaded successfully."
+        );
+
+
+        await loadWorkspace();
+      } catch (err) {
+        pushToast(
+          err?.response
+            ?.data
+            ?.detail ||
+            "Resume upload failed.",
+          "error"
+        );
+      } finally {
+        setIsUploadingResume(
+          false
+        );
+
+
+        if (
+          resumeInputRef.current
+        ) {
+          resumeInputRef.current.value =
+            "";
+        }
+      }
+    };
+
+
+  const handleJdUpload =
+    async (file) => {
+      if (!file) return;
+
+
+      const formData =
+        new FormData();
+
+
+      formData.append(
+        "file",
+        file
+      );
+
+
+      setIsUploadingJd(
+        true
+      );
+
+
+      try {
+        await uploadJobDescriptionFile(
+          formData
+        );
+
+
+        pushToast(
+          "Job description uploaded successfully."
+        );
+
+
+        await loadWorkspace();
+      } catch (err) {
+        pushToast(
+          err?.response
+            ?.data
+            ?.detail ||
+            "Job description upload failed.",
+          "error"
+        );
+      } finally {
+        setIsUploadingJd(
+          false
+        );
+
+
+        if (
+          jdInputRef.current
+        ) {
+          jdInputRef.current.value =
+            "";
+        }
+      }
+    };
+
+
+  /* =======================================================
+     PAGE
+     ======================================================= */
 
   return (
-    <div className="h-screen overflow-hidden bg-[#F6F1EA]">
+    <div
+      className="
+        brand-type
+        flex
+        h-screen
+        flex-col
+        overflow-hidden
+        bg-[#F7F2E9]
+      "
+    >
+      <style>{DASHBOARD_TYPE_STYLES}</style>
+
+      {/* HIDDEN INPUTS */}
+
       <input
-        ref={resumeInputRef}
+        ref={
+          resumeInputRef
+        }
         type="file"
         accept=".pdf,.doc,.docx"
         className="hidden"
-        onChange={(event) => handleResumeUpload(event.target.files?.[0] || null)}
+        onChange={(
+          event
+        ) =>
+          handleResumeUpload(
+            event.target
+              .files?.[0] ||
+              null
+          )
+        }
       />
+
+
       <input
-        ref={jdInputRef}
+        ref={
+          jdInputRef
+        }
         type="file"
         accept=".pdf,.doc,.docx,.txt,.md"
         className="hidden"
-        onChange={(event) => handleJdUpload(event.target.files?.[0] || null)}
+        onChange={(
+          event
+        ) =>
+          handleJdUpload(
+            event.target
+              .files?.[0] ||
+              null
+          )
+        }
       />
 
-      <div className="relative h-screen overflow-hidden bg-[linear-gradient(180deg,rgba(233,241,247,0.58)_0%,rgba(246,241,234,0.92)_28%,rgba(246,241,234,1)_100%)]">
-        <div
-          style={{
-            zoom: DASHBOARD_SCALE,
-            height: `${100 / DASHBOARD_SCALE}vh`,
-            display: "flex",
-            flexDirection: "column",
-          }}
+
+      {/* MOBILE NAV */}
+
+      <MobileDrawer
+        open={
+          mobileNavOpen
+        }
+        onClose={() =>
+          setMobileNavOpen(
+            false
+          )
+        }
+        activeSection={
+          activeSection
+        }
+        onSelectSection={
+          handleSectionChange
+        }
+      />
+
+
+      {/* NAVBAR */}
+
+      <DashboardNavbar
+        profile={
+          profile
+        }
+        tokensRemaining={
+          subData
+            .tokensRemaining
+        }
+        estimatedCost={
+          estimatedCost
+        }
+        onMobileMenu={() =>
+          setMobileNavOpen(
+            true
+          )
+        }
+        onHelp={() => {
+          handleSectionChange("overview");
+          setDashboardTourOpen(true);
+        }}
+      />
+
+      <DashboardTour
+        open={dashboardTourOpen}
+        onClose={() => setDashboardTourOpen(false)}
+      />
+
+
+      {/* BODY */}
+
+      <div
+        className="
+          flex
+          min-h-0
+          flex-1
+        "
+      >
+        <DashboardSidebar
+          activeSection={
+            activeSection
+          }
+          onSelectSection={
+            handleSectionChange
+          }
+          profile={
+            profile
+          }
+          user={
+            user
+          }
+          subData={
+            subData
+          }
+        />
+
+
+        {/* =================================================
+            MAIN WORKSPACE
+           ================================================= */}
+
+        <main
+          className="
+            dashboard-type
+            relative
+            min-w-0
+            flex-1
+            overflow-y-auto
+            overflow-x-hidden
+            bg-[#F7F1E7]
+          "
         >
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(rgba(108,136,160,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(108,136,160,0.08)_1px,transparent_1px)] bg-[size:64px_64px]" />
-          <div className="pointer-events-none absolute -left-24 bottom-[-120px] h-[460px] w-[900px] rounded-full border border-[#DCE6EF] opacity-70" />
-          <div className="pointer-events-none absolute left-[280px] top-[72px] h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.72)_0%,rgba(255,255,255,0)_72%)]" />
+          {/* FULL BACKGROUND IMAGE */}
 
-          {/* Mobile Menu Drawer Overlay */}
-          <AnimatePresence>
-            {isMobileNavOpen && (
-              <div className="fixed inset-0 z-[9999] flex lg:hidden">
-                {/* Backdrop overlay */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  onClick={() => setIsMobileNavOpen(false)}
-                  className="fixed inset-0 bg-[#2F4054]/40 backdrop-blur-xs"
-                />
+          <div
+            aria-hidden="true"
+            className="
+              pointer-events-none
+              absolute
+              inset-0
+              z-0
+              bg-cover
+              bg-top
+              bg-no-repeat
+            "
+            style={{
+              backgroundImage:
+                `url(${dashboardBackground})`,
 
-                {/* Sliding Drawer Panel (Left-side full height) */}
-                <motion.div
-                  initial={{ x: "-100%" }}
-                  animate={{ x: 0 }}
-                  exit={{ x: "-100%" }}
-                  transition={{ type: "spring", damping: 25, stiffness: 220 }}
-                  className="relative flex w-full max-w-[300px] flex-col bg-white p-6 shadow-2xl border-r border-[#D7E3EC] h-full"
-                >
+              backgroundPosition:
+                "center top",
+            }}
+          />
 
-                  {/* Header containing Logo & Close button */}
-                  <div className="flex items-center justify-between mb-8">
-                    <button
-                      onClick={() => {
-                        setIsMobileNavOpen(false);
-                        navigate("/");
-                      }}
-                      className="flex items-center gap-3 text-left transition-opacity hover:opacity-80"
-                    >
-                      <img
-                        src={colorLogo}
-                        alt="CareerSense Logo"
-                        className="h-10 w-10 object-contain rounded-2xl shrink-0"
-                      />
-                      <div>
-                        <h1 className="text-[22px] font-black leading-none tracking-[-0.04em]">
-                          <span className="text-[#0D2E63]">Career</span>
-                          <span className="text-[#306099]">Sense</span>
-                        </h1>
-                        <p className="mt-1 text-[9px] font-black uppercase tracking-[0.22em] text-[#6B87A0] whitespace-nowrap">
-                          ATS Intelligence
-                        </p>
-                      </div>
-                    </button>
 
-                    {/* Close button */}
-                    <button
-                      type="button"
-                      onClick={() => setIsMobileNavOpen(false)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#CFE0EC] bg-white text-[#2F4054] transition hover:bg-slate-50 focus:outline-none"
-                      aria-label="Close navigation menu"
-                    >
-                      <X className="h-4.5 w-4.5" />
-                    </button>
-                  </div>
+          {/* IVORY FILTER */}
 
-                  {/* Initialize Builder CTA inside mobile drawer */}
-                  <button
-                    onClick={() => {
-                      navigate("/check-ats");
-                      setIsMobileNavOpen(false);
-                    }}
-                    className="mb-5 flex w-full h-11 items-center justify-center gap-2 rounded-xl bg-[#2F4054] text-[13px] font-bold text-white transition hover:bg-[#3A4D64] shadow-sm"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    Check ATS
-                  </button>
+          <div
+            aria-hidden="true"
+            className="
+              pointer-events-none
+              absolute
+              inset-0
+              z-[1]
+              bg-[linear-gradient(90deg,rgba(250,247,240,0.90)_0%,rgba(250,247,240,0.81)_39%,rgba(250,247,240,0.65)_72%,rgba(250,247,240,0.52)_100%)]
+            "
+          />
 
-                  {/* Navigation Items list */}
-                  <nav className="space-y-1.5 flex-1" aria-label="Mobile Navigation">
-                    {SECTION_ITEMS.map(({ id, label, icon: Icon }) => {
-                      const active = activeSection === id;
-                      return (
-                        <button
-                          key={id}
-                          onClick={() => {
-                            handleSectionChange(id);
-                            setIsMobileNavOpen(false);
-                          }}
-                          className={`flex w-full items-center gap-3 rounded-xl px-3.5 py-3 text-[14px] font-bold transition-all duration-200 ${active
-                            ? "bg-[#DCE7F1] text-[#2F4054] shadow-sm"
-                            : "text-[#66859C] hover:bg-slate-50 hover:text-[#2F4054]"
-                            }`}
-                        >
-                          <Icon className="h-[18px] w-[18px]" />
-                          {label}
-                        </button>
-                      );
-                    })}
-                  </nav>
 
-                  {/* Footer space inside drawer (points & estimation) */}
-                  <div className="border-t border-[#D7E3EC] pt-4 mt-auto space-y-2">
-                    <div className="flex items-center justify-between rounded-xl border border-[#D7E3EC] bg-slate-50 px-3 py-2 text-[11px] font-bold text-[#6B88A0]">
-                      <span className="flex items-center gap-1.5"><Star className="h-3.5 w-3.5 text-amber-500" fill="currentColor" /> AI Tokens Remaining</span>
-                      <span className="text-[#2F4054]">{(subData.tokensRemaining ?? 30000).toLocaleString()}</span>
-                    </div>
-                    <div className="flex items-center justify-between rounded-xl border border-[#D7E3EC] bg-slate-50 px-3 py-2 text-[11px] font-bold text-[#6B88A0]">
-                      <span className="flex items-center gap-1.5"><Gauge className="h-3.5 w-3.5" /> Cost</span>
-                      <span className="text-[#2F4054]">{formatUsd(estimatedCost)}</span>
-                    </div>
-                  </div>
+          {/* TOP LIGHT */}
 
-                </motion.div>
+          <div
+            aria-hidden="true"
+            className="
+              pointer-events-none
+              absolute
+              left-0
+              top-0
+              z-[2]
+              h-[370px]
+              w-[70%]
+              bg-[radial-gradient(circle_at_28%_20%,rgba(255,255,255,0.72),transparent_67%)]
+            "
+          />
+
+
+          {/* LOWER FADE */}
+
+          <div
+            aria-hidden="true"
+            className="
+              pointer-events-none
+              absolute
+              bottom-0
+              left-0
+              z-[2]
+              h-[300px]
+              w-full
+              bg-[linear-gradient(to_bottom,transparent,rgba(248,243,234,0.34))]
+            "
+          />
+
+
+          {/* ACTUAL CONTENT */}
+
+          <div
+            className="
+              relative
+              z-10
+              mx-auto
+              w-full
+              max-w-[1540px]
+              px-5
+              py-5
+              xl:px-7
+              xl:py-6
+            "
+          >
+            {status ===
+              "loading" && (
+              <div className="flex min-h-[360px] w-full items-center justify-center">
+                <Loader />
               </div>
             )}
-          </AnimatePresence>
 
-          <div className="relative z-10 flex flex-1 min-h-0 overflow-hidden">
-            <DashboardSidebar
-              activeSection={activeSection}
-              onSelectSection={handleSectionChange}
-            />
 
-            <div className="min-w-0 flex-1 overflow-y-auto">
-              <WorkspaceHeader
-                title={activeSectionMeta.label}
-                subtitle={sectionSubtitleMap[activeSection]}
-                totalPoints={totalPoints}
-                estimatedCost={estimatedCost}
-                subData={subData}
-                onStartBuilder={() => navigate("/check-ats")}
-                onOpenMobileNav={() => setIsMobileNavOpen(true)}
+            {error && (
+              <Toast
+                message={
+                  error
+                }
+                variant="error"
               />
+            )}
 
-              <div className="px-10 py-8">
-                {status === "loading" ? (
-                  <Loader label="Loading CareerSense workspace..." />
-                ) : null}
-                {error ? <Toast message={error} variant="error" /> : null}
-                {toast ? <Toast message={toast} variant={toastVariant} /> : null}
 
-                {status === "success" ? (
-                  <>
-                    {activeSection === "overview" ? (
-                      <OverviewSection
-                        profile={profile}
-                        reports={reports}
-                        resumes={resumes}
-                        jobDescriptions={jobDescriptions}
-                        profileCompletion={profileCompletion}
-                        onSelectSection={handleSectionChange}
-                        totalPoints={totalPoints}
-                      />
-                    ) : null}
+            {toast && (
+              <Toast
+                message={
+                  toast
+                }
+                variant={
+                  toastVariant
+                }
+              />
+            )}
 
-                    {activeSection === "reports" ? (
-                      <ReportsSection reports={reports} />
-                    ) : null}
 
-                    {activeSection === "sources" ? (
-                      <DataSourcesSection
-                        resumes={resumes}
-                        jobDescriptions={jobDescriptions}
-                        onUploadResumeClick={() => resumeInputRef.current?.click()}
-                        onUploadJdClick={() => jdInputRef.current?.click()}
-                        isUploadingResume={isUploadingResume}
-                        isUploadingJd={isUploadingJd}
-                      />
-                    ) : null}
+            {status ===
+              "success" && (
+              <>
+                {activeSection ===
+                  "overview" && (
+                  <OverviewSection
+                    profile={
+                      profile
+                    }
+                    reports={
+                      reports
+                    }
+                    resumes={
+                      resumes
+                    }
+                    jobDescriptions={
+                      jobDescriptions
+                    }
+                    totalPoints={
+                      totalPoints
+                    }
+                    subData={
+                      subData
+                    }
+                    onUploadResume={() =>
+                      resumeInputRef.current?.click()
+                    }
+                    onSelectSection={
+                      handleSectionChange
+                    }
+                  />
+                )}
 
-                    {activeSection === "billing" ? (
-                      <BillingSection
-                        totalPoints={totalPoints}
-                        estimatedCost={estimatedCost}
-                        ledger={ledger}
-                        subData={subData}
-                      />
-                    ) : null}
 
-                    {activeSection === "profile" ? (
-                      <ProfileSection
-                        profileDraft={profileDraft}
-                        onChange={handleProfileChange}
-                        onSave={handleProfileSave}
-                      />
-                    ) : null}
-                  </>
-                ) : null}
-              </div>
-            </div>
+                {activeSection ===
+                  "reports" && (
+                  <ReportsSection
+                    reports={
+                      reports
+                    }
+                  />
+                )}
+
+
+                {activeSection ===
+                  "sources" && (
+                  <DataSourcesSection
+                    resumes={
+                      resumes
+                    }
+                    jobDescriptions={
+                      jobDescriptions
+                    }
+                    onUploadResumeClick={() =>
+                      resumeInputRef.current?.click()
+                    }
+                    onUploadJdClick={() =>
+                      jdInputRef.current?.click()
+                    }
+                    isUploadingResume={
+                      isUploadingResume
+                    }
+                    isUploadingJd={
+                      isUploadingJd
+                    }
+                  />
+                )}
+
+
+                {activeSection ===
+                  "billing" && (
+                  <BillingSection
+                    totalPoints={
+                      totalPoints
+                    }
+                    estimatedCost={
+                      estimatedCost
+                    }
+                    ledger={
+                      ledger
+                    }
+                    subData={
+                      subData
+                    }
+                  />
+                )}
+
+
+                {activeSection ===
+                  "profile" && (
+                  <ProfileSection
+                    profile={
+                      profile
+                    }
+                  />
+                )}
+              </>
+            )}
           </div>
-        </div>
+        </main>
       </div>
     </div>
   );
 }
+
 
 export default Dashboard;

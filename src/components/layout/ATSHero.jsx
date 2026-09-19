@@ -1,729 +1,1298 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
-import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+
+import {
+  AnimatePresence,
+  motion,
+  useReducedMotion,
+} from "framer-motion";
+
 import {
   ArrowRight,
-  CheckCircle2,
+  BarChart3,
   FileText,
-  Gamepad2,
-  LayoutDashboard,
   LayoutGrid,
-  ScanSearch,
-  Sparkles,
   Target,
-  UploadCloud,
   X,
   Zap,
 } from "lucide-react";
-import AnimatedHeroBackground from "./AnimatedHeroBackground";
-import { SignedIn } from "@clerk/clerk-react";
 
-const HERO_WORDS = ["Land the Interview", "Get Shortlisted", "Apply with Confidence", "Reach the Recruiter", "Unlock More Interviews"];
+import heroBackground from "../../assets/home/hero.png";
 
-const methodCards = [
-  {
-    title: "Resume Audit",
-    text: "Get an instant ATS scan with structure, keyword, and readability checks before you apply.",
-    to: "/check-ats/resume",
-    icon: ScanSearch,
-  },
-  {
-    title: "Job Alignment",
-    text: "Compare your resume with a target role and uncover missing skills, keywords, and fit gaps.",
-    to: "/check-ats/resume-jd",
-    icon: Target,
-  },
-  {
-    title: "Play with Resume",
-    text: "Practice improving your resume in an interactive guided space before making final edits.",
-    to: "/play-with-resume",
-    icon: Gamepad2,
-  },
-];
 
-const stats = [
-  { value: "100+", label: "Check Points", icon: Zap },
-  { value: "SMART", label: "JD Alignment", icon: LayoutGrid },
-  { value: "100%", label: "ATS Cheks", icon: FileText },
-  { value: "60s", label: "Scoring", icon: Sparkles },
-];
-
-const workflowSteps = [
-  {
-    title: "Upload resume",
-    text: "Start with your current file and let CareerSense parse the structure.",
-    badge: "Step 1",
-    icon: UploadCloud,
-  },
-  {
-    title: "Analyze for ATS",
-    text: "We inspect formatting, keywords, and recruiter-facing readability.",
-    badge: "Step 2",
-    icon: ScanSearch,
-  },
-  {
-    title: "Match to job description",
-    text: "Add the target role to surface missing, skills and alignment issues.",
-    badge: "Step 3",
-    icon: Target,
-  },
-  {
-    title: "Improve and rescan",
-    text: "Use the score, fixes, to strengthen the resume and check it again fast.",
-    badge: "Done",
-    icon: CheckCircle2,
-  },
-];
+/* =========================================================
+   THEME
+   ========================================================= */
 
 const colors = {
-  cream: "#F6F1EA",
-  border: "#E4DDD4",
-  navy: "#10245A",
-  dark: "#081632",
-  muted: "#294160",
-  blueText: "#6D8EAA",
-  blueSoft: "#E7F0F8",
+  cream: "#F8F3EA",
+  navy: "#0D2E4A",
+  dark: "#071C2E",
+  muted: "#4E7188",
+  gold: "#C1882D",
+  green: "#159369",
+  red: "#D84E4E",
 };
 
+
+/* =========================================================
+   HERO STATS
+   ========================================================= */
+
+const stats = [
+  {
+    value: "100+",
+    label: "Check Points",
+    icon: Zap,
+  },
+  {
+    value: "SMART",
+    label: "JD Matching",
+    icon: LayoutGrid,
+  },
+  {
+    value: "95%",
+    label: "Accuracy",
+    icon: FileText,
+  },
+  {
+    value: "60s",
+    label: "Instant Results",
+    icon: BarChart3,
+  },
+];
+
+
+/* =========================================================
+   SCORE METRIC
+   ========================================================= */
+
+const MetricRow = ({
+  value,
+  label,
+  tone = "green",
+}) => {
+  const positive =
+    tone === "green";
+
+  return (
+    <div
+      className="
+        grid
+        grid-cols-[27px_25px_1fr]
+        items-center
+        gap-2
+      "
+    >
+      <div
+        className={`
+          flex
+          h-[26px]
+          w-[26px]
+          items-center
+          justify-center
+          rounded-[7px]
+
+          ${
+            positive
+              ? "bg-[#E4F5EC] text-[#139269]"
+              : "bg-[#FCE9E6] text-[#DE5454]"
+          }
+        `}
+      >
+        {positive ? (
+          <BarChart3
+            size={12}
+            strokeWidth={2.2}
+          />
+        ) : (
+          <Target
+            size={12}
+            strokeWidth={2.2}
+          />
+        )}
+      </div>
+
+      <span
+        className={`
+          text-[10.5px]
+          font-black
+
+          ${
+            positive
+              ? "text-[#159369]"
+              : "text-[#D84E4E]"
+          }
+        `}
+      >
+        {value}
+      </span>
+
+      <span
+        className="
+          whitespace-nowrap
+          text-[7.5px]
+          font-semibold
+          text-[#657E8E]
+        "
+      >
+        {label}
+      </span>
+    </div>
+  );
+};
+
+
+/* =========================================================
+   ATS HERO
+   ========================================================= */
+
 const ATSHero = () => {
-  const reduceMotion = useReducedMotion();
-  const [heroWordIdx, setHeroWordIdx] = useState(0);
-  const [heroWordVisible, setHeroWordVisible] = useState(true);
-  const [activeWorkflowIndex, setActiveWorkflowIndex] = useState(0);
-  const [isSampleReportOpen, setIsSampleReportOpen] = useState(false);
+  const reduceMotion =
+    useReducedMotion();
+
+  const [
+    isSampleReportOpen,
+    setIsSampleReportOpen,
+  ] = useState(false);
+
+
+  /* =======================================================
+     SAMPLE REPORT SCROLL LOCK
+     ======================================================= */
 
   useEffect(() => {
-    if (reduceMotion || isSampleReportOpen) return undefined;
-
-    const interval = window.setInterval(() => {
-      setHeroWordVisible(false);
-
-      window.setTimeout(() => {
-        setHeroWordIdx((current) => (current + 1) % HERO_WORDS.length);
-        setHeroWordVisible(true);
-      }, 170);
-    }, 2400);
-
-    return () => window.clearInterval(interval);
-  }, [reduceMotion, isSampleReportOpen]);
-
-  useEffect(() => {
-    if (reduceMotion || isSampleReportOpen) return undefined;
-
-    const workflowInterval = window.setInterval(() => {
-      setActiveWorkflowIndex((current) => (current + 1) % workflowSteps.length);
-    }, 1500);
-
-    return () => window.clearInterval(workflowInterval);
-  }, [reduceMotion, isSampleReportOpen]);
-
-  useEffect(() => {
-    if (typeof document === "undefined") return undefined;
-
-    if (!isSampleReportOpen) {
-      document.body.style.overflow = "";
+    if (
+      typeof document === "undefined"
+    ) {
       return undefined;
     }
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    if (!isSampleReportOpen) {
+      document.body.style.overflow =
+        "";
+
+      return undefined;
+    }
+
+    const previousOverflow =
+      document.body.style.overflow;
+
+    document.body.style.overflow =
+      "hidden";
 
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow =
+        previousOverflow;
     };
   }, [isSampleReportOpen]);
 
+
   return (
-    <section
-      className="relative isolate overflow-hidden border-b"
-      style={{
-        backgroundColor: colors.cream,
-        borderColor: colors.border,
-      }}
-    >
-      {!isSampleReportOpen ? <AnimatedHeroBackground /> : null}
-
-      <div
-        className="pointer-events-none absolute inset-0 z-0"
-        style={{
-          background:
-            "radial-gradient(circle at 47% 42%, rgba(226,191,127,0.2), transparent 34%), linear-gradient(180deg, rgba(246,241,234,0.62), rgba(246,241,234,0.16) 38%, rgba(246,241,234,0.88) 100%)",
-        }}
-      />
-
-      <div
-        className="relative mx-auto overflow-hidden px-6 py-5 sm:px-8 lg:px-12 lg:py-5"
-        style={{
-          maxWidth: "2340px",
-          minHeight: "calc(100vh - 72px)",
-        }}
+    <>
+      <section
+        className="
+          relative
+          isolate
+          overflow-hidden
+          border-b
+          border-[#DDD8CF]
+          bg-[#F8F3EA]
+        "
       >
-        <div className="relative z-10 grid items-start gap-8 lg:grid-cols-2 lg:gap-10">
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, y: 14 }}
-            animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-            className="lg:pt-4"
+        {/* =================================================
+            HERO BACKGROUND
+            ================================================= */}
+
+        <img
+          src={heroBackground}
+          alt=""
+          aria-hidden="true"
+          className="
+            pointer-events-none
+            absolute
+            inset-0
+            h-full
+            w-full
+            object-cover
+            object-center
+          "
+        />
+
+
+        {/* =================================================
+            LEFT READABILITY OVERLAY
+
+            Strong cream coverage on the content side.
+            Gradually disappears toward product / photography.
+            ================================================= */}
+
+        <div
+          aria-hidden="true"
+          className="
+            pointer-events-none
+            absolute
+            inset-0
+            bg-[linear-gradient(
+              90deg,
+              rgba(250,247,240,.985)_0%,
+              rgba(250,247,240,.96)_26%,
+              rgba(250,247,240,.79)_40%,
+              rgba(250,247,240,.32)_55%,
+              rgba(250,247,240,.07)_70%,
+              rgba(250,247,240,0)_100%
+            )]
+          "
+        />
+
+
+        {/* subtle vertical wash */}
+
+        <div
+          aria-hidden="true"
+          className="
+            pointer-events-none
+            absolute
+            inset-0
+            bg-[linear-gradient(
+              180deg,
+              rgba(255,255,255,.08),
+              transparent_34%,
+              rgba(248,243,234,.10)
+            )]
+          "
+        />
+
+
+        {/* =================================================
+            HERO CONTENT
+            ================================================= */}
+
+        <div
+          className="landing-container
+            relative
+            z-10
+            mx-auto
+            w-full
+            max-w-[1920px]
+            px-5
+            py-7
+            sm:px-8
+            lg:min-h-[510px]
+            lg:px-12
+            lg:py-8
+            xl:px-[88px]
+            2xl:px-[105px]
+          "
+        >
+          <div
+            className="
+              grid
+              h-full
+              items-center
+              gap-8
+              lg:grid-cols-[0.43fr_0.57fr]
+              xl:gap-6
+            "
           >
-            <h1
-              className="max-w-3xl font-black leading-none tracking-tighter"
-              style={{
-                color: colors.navy,
-                fontSize: "clamp(40px, 3.9vw, 62px)",
+            {/* ===============================================
+                LEFT CONTENT
+                =============================================== */}
+
+            <motion.div
+              initial={
+                reduceMotion
+                  ? false
+                  : {
+                      opacity: 0,
+                      y: 14,
+                    }
+              }
+              animate={
+                reduceMotion
+                  ? undefined
+                  : {
+                      opacity: 1,
+                      y: 0,
+                    }
+              }
+              transition={{
+                duration: 0.6,
+                ease: [
+                  0.16,
+                  1,
+                  0.3,
+                  1,
+                ],
               }}
+              className="
+                relative
+                z-20
+                max-w-[710px]
+              "
             >
-              Beat the ATS{" "}
-              <br />
-              <span
-                style={{
-                  display: "inline-block",
-                  transition: "opacity 0.35s ease, transform 0.35s ease",
-                  opacity: heroWordVisible ? 1 : 0,
-                  transform: heroWordVisible
-                    ? "translateY(0px)"
-                    : "translateY(-10px)",
-                  color: colors.blueText,
-                }}
+              {/* ---------------------------------------------
+                  EYEBROW
+                  --------------------------------------------- */}
+
+              <div
+                className="
+                  mb-4
+                  flex
+                  items-center
+                  gap-3
+                "
               >
-                {HERO_WORDS[heroWordIdx]}
-              </span>
-              <br />
-            </h1>
+                <span
+                  className="
+                    h-px
+                    w-8
+                    bg-[#B67A21]
+                  "
+                />
 
-            <p
-              className="mt-5 max-w-2xl font-medium leading-relaxed tracking-tight"
-              style={{
-                color: "rgba(41,65,96,0.9)",
-                fontSize: "16px",
-              }}
-            >
-              Stop guessing what the algorithm wants. Our AI instantly compares
-              your resume against any job description, highlights missing
-              keywords, and optimizes your format to help you pass the initial
-              screen.
-            </p>
+                <p
+                  className="
+                    text-[8.5px]
+                    font-black
+                    uppercase
+                    tracking-[0.25em]
+                    text-[#A96F19]
+                    sm:text-[9.5px]
+                  "
+                >
+                  AI-Powered ATS Resume Checker
+                </p>
+              </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              <div>
+
+              {/* ---------------------------------------------
+                  HEADLINE
+                  --------------------------------------------- */}
+
+              <h1
+                className="
+                  max-w-[690px]
+                  font-serif
+                  text-[43px]
+                  font-semibold
+                  leading-[0.93]
+                  tracking-[-0.052em]
+                  text-[#0D2E4A]
+                  sm:text-[50px]
+                  md:text-[54px]
+                  lg:text-[52px]
+                  xl:text-[58px]
+                  2xl:text-[62px]
+                "
+              >
+                Beat the ATS.
+                <br />
+
+                <span className="text-[#C1882D]">
+                  Get More
+                </span>{" "}
+
+                <span className="text-[#0D2E4A]">
+                  Interviews.
+                </span>
+              </h1>
+
+
+              {/* ---------------------------------------------
+                  DESCRIPTION
+                  --------------------------------------------- */}
+
+              <p
+                className="
+                  mt-5
+                  max-w-[620px]
+                  text-[14px]
+                  font-medium
+                  leading-[1.68]
+                  text-[#456A82]
+                  sm:text-[14.5px]
+                "
+              >
+                Instantly analyze your resume
+                against any job description,
+                uncover what&apos;s missing, and
+                get clear, actionable
+                recommendations to improve your
+                chances.
+              </p>
+
+
+              {/* ---------------------------------------------
+                  BUTTONS
+                  --------------------------------------------- */}
+
+              <div
+                className="
+                  mt-6
+                  flex
+                  flex-col
+                  gap-3
+                  sm:flex-row
+                  sm:items-center
+                "
+              >
                 <Link
                   to="/check-ats"
-                  className="group inline-flex w-full items-center justify-between rounded-xl px-5 text-[13px] font-black text-white transition duration-300 hover:-translate-y-0.5"
-                  style={{
-                    minHeight: "44px",
-                    backgroundColor: colors.navy,
-                    boxShadow: "0 16px 28px rgba(16,36,90,0.18)",
-                  }}
+                  className="
+                    group
+                    inline-flex
+                    h-[50px]
+                    min-w-[225px]
+                    items-center
+                    justify-between
+                    rounded-[9px]
+                    border
+                    border-[#0B304B]
+                    bg-[#0B304B]
+                    px-5
+                    text-[12.5px]
+                    font-extrabold
+                    text-white
+                    shadow-[0_11px_24px_rgba(8,42,65,.18)]
+                    transition-all
+                    duration-300
+                    hover:-translate-y-0.5
+                    hover:bg-[#123D59]
+                  "
                 >
-                  <span>Scan Resume</span>
+                  <span>
+                    Scan My Resume
+                  </span>
+
                   <ArrowRight
-                    size={20}
-                    className="transition duration-300 group-hover:translate-x-1"
+                    size={17}
+                    className="
+                      transition-transform
+                      duration-300
+                      group-hover:translate-x-1
+                    "
+                  />
+                </Link>
+
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setIsSampleReportOpen(
+                      true
+                    )
+                  }
+                  className="
+                    group
+                    inline-flex
+                    h-[50px]
+                    min-w-[220px]
+                    items-center
+                    justify-center
+                    gap-3
+                    rounded-[9px]
+                    border
+                    border-[#BFD0D9]
+                    bg-white/94
+                    px-5
+                    text-[12.5px]
+                    font-extrabold
+                    text-[#0D2E4A]
+                    shadow-[0_8px_18px_rgba(13,46,74,.07)]
+                    backdrop-blur
+                    transition-all
+                    duration-300
+                    hover:-translate-y-0.5
+                    hover:bg-white
+                  "
+                >
+                  <FileText
+                    size={16}
+                  />
+
+                  <span>
+                    View Sample Report
+                  </span>
+                </button>
+              </div>
+
+
+              {/* ---------------------------------------------
+                  STATS
+                  --------------------------------------------- */}
+
+              <div
+                className="
+                  mt-6
+                  grid
+                  max-w-[650px]
+                  grid-cols-2
+                  gap-x-5
+                  gap-y-3
+                  sm:grid-cols-4
+                "
+              >
+                {stats.map(
+                  (
+                    {
+                      value,
+                      label,
+                      icon: Icon,
+                    },
+                    index
+                  ) => (
+                    <motion.div
+                      key={label}
+                      initial={
+                        reduceMotion
+                          ? false
+                          : {
+                              opacity: 0,
+                              y: 9,
+                            }
+                      }
+                      animate={
+                        reduceMotion
+                          ? undefined
+                          : {
+                              opacity: 1,
+                              y: 0,
+                            }
+                      }
+                      transition={{
+                        duration: 0.42,
+                        delay:
+                          0.15 +
+                          index * 0.05,
+                        ease: [
+                          0.16,
+                          1,
+                          0.3,
+                          1,
+                        ],
+                      }}
+                      className="
+                        flex
+                        min-w-0
+                        items-center
+                        gap-2.5
+                      "
+                    >
+                      <div
+                        className="
+                          flex
+                          h-[36px]
+                          w-[36px]
+                          shrink-0
+                          items-center
+                          justify-center
+                          rounded-[9px]
+                          border
+                          border-[#D3DDE2]
+                          bg-white/90
+                          text-[#0D2E4A]
+                          shadow-[0_6px_14px_rgba(13,46,74,.06)]
+                        "
+                      >
+                        <Icon
+                          size={15}
+                          strokeWidth={2}
+                        />
+                      </div>
+
+
+                      <div className="min-w-0">
+                        <p
+                          className="
+                            whitespace-nowrap
+                            text-[14px]
+                            font-black
+                            leading-none
+                            tracking-[-0.025em]
+                            text-[#0D2E4A]
+                          "
+                        >
+                          {value}
+                        </p>
+
+                        <p
+                          className="
+                            mt-1
+                            whitespace-nowrap
+                            text-[6.5px]
+                            font-black
+                            uppercase
+                            tracking-[0.13em]
+                            text-[#668298]
+                          "
+                        >
+                          {label}
+                        </p>
+                      </div>
+                    </motion.div>
+                  )
+                )}
+              </div>
+            </motion.div>
+
+
+            {/* ===============================================
+                RIGHT PRODUCT PREVIEW
+                =============================================== */}
+
+            <motion.div
+              initial={
+                reduceMotion
+                  ? false
+                  : {
+                      opacity: 0,
+                      x: 20,
+                    }
+              }
+              animate={
+                reduceMotion
+                  ? undefined
+                  : {
+                      opacity: 1,
+                      x: 0,
+                    }
+              }
+              transition={{
+                duration: 0.7,
+                delay: 0.08,
+                ease: [
+                  0.16,
+                  1,
+                  0.3,
+                  1,
+                ],
+              }}
+              className="
+                relative
+                z-20
+                mx-auto
+                hidden
+                h-[390px]
+                w-full
+                max-w-[825px]
+                lg:block
+                xl:translate-x-5
+              "
+            >
+              {/* ---------------------------------------------
+                  CHECKER PANEL
+                  --------------------------------------------- */}
+
+              <div
+                className="
+                  absolute
+                  left-[4%]
+                  top-[35px]
+                  z-10
+                  w-[64%]
+                  rounded-[14px]
+                  border
+                  border-[#D8E1E5]
+                  bg-[#FFFEFC]
+                  p-4
+                  shadow-[0_20px_45px_rgba(10,39,59,.15)]
+                "
+              >
+                {/* header */}
+
+                <div
+                  className="
+                    flex
+                    items-center
+                    justify-between
+                    gap-3
+                  "
+                >
+                  <h2
+                    className="
+                      text-[15px]
+                      font-black
+                      tracking-[-0.025em]
+                      text-[#0D2E4A]
+                    "
+                  >
+                    CareerSense ATS Checker
+                  </h2>
+
+
+                  <span
+                    className="
+                      hidden
+                      rounded-full
+                      bg-[#F5EBD5]
+                      px-2.5
+                      py-1
+                      text-[6px]
+                      font-black
+                      uppercase
+                      tracking-[0.13em]
+                      text-[#B67A1E]
+                      xl:inline-flex
+                    "
+                  >
+                    AI Powered
+                  </span>
+                </div>
+
+
+                {/* resume */}
+
+                <div
+                  className="
+                    mt-4
+                    flex
+                    items-center
+                    justify-between
+                    gap-3
+                    rounded-[8px]
+                    border
+                    border-[#D7E0E5]
+                    bg-white
+                    px-3
+                    py-2.5
+                  "
+                >
+                  <div
+                    className="
+                      flex
+                      min-w-0
+                      items-center
+                      gap-3
+                    "
+                  >
+                    <div
+                      className="
+                        flex
+                        h-[34px]
+                        w-[34px]
+                        shrink-0
+                        items-center
+                        justify-center
+                        rounded-[8px]
+                        bg-[#EAF3F9]
+                        text-[#0D2E4A]
+                      "
+                    >
+                      <FileText
+                        size={15}
+                      />
+                    </div>
+
+
+                    <div className="min-w-0">
+                      <p
+                        className="
+                          truncate
+                          text-[9px]
+                          font-extrabold
+                          text-[#173A51]
+                        "
+                      >
+                        Jordan_Sterling_Resume.pdf
+                      </p>
+
+                      <p
+                        className="
+                          mt-0.5
+                          text-[7px]
+                          font-semibold
+                          text-[#8CA1AF]
+                        "
+                      >
+                        2.4 MB • PDF
+                      </p>
+                    </div>
+                  </div>
+
+
+                  <button
+                    type="button"
+                    className="
+                      shrink-0
+                      rounded-[7px]
+                      border
+                      border-[#D5E0E5]
+                      bg-white
+                      px-3
+                      py-1.5
+                      text-[7.5px]
+                      font-extrabold
+                      text-[#173A51]
+                    "
+                  >
+                    Change
+                  </button>
+                </div>
+
+
+                {/* JD */}
+
+                <div className="mt-4">
+                  <label
+                    className="
+                      text-[7.5px]
+                      font-black
+                      text-[#173A51]
+                    "
+                  >
+                    Job Description
+
+                    <span
+                      className="
+                        ml-1
+                        font-semibold
+                        text-[#8199A8]
+                      "
+                    >
+                      (Optional)
+                    </span>
+                  </label>
+
+
+                  <div
+                    className="
+                      mt-2
+                      min-h-[67px]
+                      rounded-[8px]
+                      border
+                      border-[#CBD9E0]
+                      bg-white
+                      px-3
+                      py-3
+                      text-[7.5px]
+                      font-medium
+                      text-[#97A9B4]
+                    "
+                  >
+                    Paste the job description or
+                    enter a job title...
+                  </div>
+
+
+                  <p
+                    className="
+                      mt-1
+                      text-right
+                      text-[6.5px]
+                      font-semibold
+                      text-[#8EA3AF]
+                    "
+                  >
+                    0/2000
+                  </p>
+                </div>
+
+
+                {/* analyze */}
+
+                <Link
+                  to="/check-ats/resume-jd"
+                  className="
+                    group
+                    mt-3
+                    flex
+                    h-[44px]
+                    w-full
+                    items-center
+                    justify-center
+                    gap-4
+                    rounded-[8px]
+                    bg-[#0B304B]
+                    px-4
+                    text-[10.5px]
+                    font-extrabold
+                    text-white
+                    shadow-[0_8px_18px_rgba(11,48,75,.17)]
+                    transition
+                    hover:bg-[#123D59]
+                  "
+                >
+                  Analyze with CareerSense
+
+                  <ArrowRight
+                    size={14}
+                    className="
+                      transition-transform
+                      group-hover:translate-x-1
+                    "
                   />
                 </Link>
               </div>
 
-              <div>
-                <button
-                  type="button"
-                  onClick={() => setIsSampleReportOpen(true)}
-                  className="group inline-flex w-full items-center justify-between rounded-xl border bg-white px-5 text-[13px] font-black transition duration-300 hover:-translate-y-0.5"
-                  style={{
-                    minHeight: "44px",
-                    color: colors.navy,
-                    borderColor: "#D8DFE7",
-                    boxShadow: "0 14px 24px rgba(16,36,90,0.08)",
-                  }}
-                >
-                  <span>Sample Report</span>
-                  <FileText
-                    size={18}
-                    className="transition duration-300 group-hover:translate-x-1"
-                  />
-                </button>
-              </div>
-            </div>
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              {methodCards.map(({ title, text, to, icon: Icon }, index) => (
-                <motion.div
-                  key={title}
-                  initial={reduceMotion ? false : { opacity: 0, y: 12 }}
-                  animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.48,
-                    delay: 0.1 + index * 0.05,
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                  className="h-full"
-                >
-                  <Link
-                    to={to}
-                    className="group flex flex-col h-full rounded-2xl border bg-white p-4 transition duration-300 hover:-translate-y-1"
-                    style={{
-                      minHeight: "185px",
-                      borderColor: "#E5E0DA",
-                      backgroundColor: "rgba(255,255,255,0.9)",
-                      boxShadow: "0 14px 34px rgba(16,36,90,0.07)",
-                    }}
-                  >
-                    <div className="mb-4 flex items-center justify-between">
-                      <div
-                        className="flex items-center justify-center rounded-2xl"
-                        style={{
-                          width: "40px",
-                          height: "40px",
-                          backgroundColor: colors.blueSoft,
-                          color: colors.navy,
-                        }}
-                      >
-                        <Icon size={18} strokeWidth={2.2} />
-                      </div>
+              {/* ---------------------------------------------
+                  SCORE CARD
+                  --------------------------------------------- */}
 
-                      <ArrowRight
-                        size={16}
-                        className="transition duration-300 group-hover:translate-x-1"
-                        style={{ color: "#5E7EA3" }}
-                      />
-                    </div>
-
-                    <h3
-                      className="font-black leading-tight tracking-tight"
-                      style={{
-                        color: colors.dark,
-                        fontSize: "18px",
-                      }}
-                    >
-                      {title}
-                    </h3>
-
-                    <p
-                      className="mt-3 font-medium leading-relaxed tracking-tight"
-                      style={{
-                        color: "rgba(20,37,66,0.88)",
-                        fontSize: "13px",
-                      }}
-                    >
-                      {text}
-                    </p>
-                  </Link>
-                </motion.div>
-              ))}
-            </div>
-
-            <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-4">
-              {stats.map((stat, index) => {
-                const Icon = stat.icon;
-
-                return (
-                  <motion.div
-                    key={stat.label}
-                    initial={reduceMotion ? false : { opacity: 0, y: 10 }}
-                    animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-                    transition={{
-                      duration: 0.45,
-                      delay: 0.22 + index * 0.05,
-                      ease: [0.16, 1, 0.3, 1],
-                    }}
-                    className="flex items-center gap-3"
-                  >
-                    <div
-                      className="flex shrink-0 items-center justify-center rounded-2xl bg-white"
-                      style={{
-                        width: "40px",
-                        height: "40px",
-                        color: colors.navy,
-                        border: "1px solid rgba(216,223,231,0.95)",
-                        boxShadow: "0 10px 22px rgba(16,36,90,0.1)",
-                      }}
-                    >
-                      <Icon size={17} strokeWidth={2.2} />
-                    </div>
-
-                    <div>
-                      <p
-                        className="font-black leading-none tracking-tight"
-                        style={{
-                          color: colors.navy,
-                          fontSize: "15px",
-                        }}
-                      >
-                        {stat.value}
-                      </p>
-
-                      <p
-                        className="mt-1 font-black uppercase leading-none tracking-[0.12em]"
-                        style={{
-                          color: "#537397",
-                          fontSize: "10px",
-                        }}
-                      >
-                        {stat.label}
-                      </p>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, x: 20 }}
-            animate={reduceMotion ? undefined : { opacity: 1, x: 0 }}
-            transition={{
-              duration: 0.7,
-              ease: [0.16, 1, 0.3, 1],
-              delay: 0.08,
-            }}
-            className="w-full justify-self-end lg:pt-2"
-            style={{ maxWidth: "610px" }}
-          >
-            <div
-              className="rounded-3xl border bg-white p-3"
-              style={{
-                borderColor: "#C8D8E6",
-                boxShadow: "0 24px 58px rgba(16,36,90,0.12)",
-              }}
-            >
               <div
-                className="rounded-3xl px-5 py-5"
-                style={{
-                  background:
-                    "linear-gradient(180deg, #EEF7FF 0%, #E7F2FB 48%, #DCECF7 100%)",
-                }}
+                className="
+                  absolute
+                  right-[2%]
+                  top-[12px]
+                  z-20
+                  w-[235px]
+                  rounded-[15px]
+                  border
+                  border-[#DDD8CF]
+                  bg-[#FFFDF9]
+                  px-4
+                  py-4
+                  shadow-[0_20px_48px_rgba(10,39,59,.18)]
+                  xl:w-[245px]
+                "
               >
-                <div
-                  className="inline-flex rounded-full bg-white px-4 py-2 font-black uppercase tracking-widest"
-                  style={{
-                    color: "#466890",
-                    fontSize: "10px",
-                  }}
-                >
-                  ATS Resume Checker
-                </div>
-
-                <h2
-                  className="mt-5 max-w-xl font-black leading-tight tracking-tight"
-                  style={{
-                    color: colors.dark,
-                    fontSize: "25px",
-                  }}
-                >
-                  Resume to Perfect Resume in minutes
-                </h2>
-
                 <p
-                  className="mt-3 max-w-xl font-semibold leading-relaxed tracking-tight"
-                  style={{
-                    color: "rgba(41,65,96,0.9)",
-                    fontSize: "13.5px",
-                  }}
+                  className="
+                    text-center
+                    text-[7.5px]
+                    font-black
+                    text-[#173A51]
+                  "
                 >
-                  Fastest way to see
-                  what is blocking your resume before it reaches a recruiter.
+                  Your ATS Score
                 </p>
 
-                <div
-                  className="mt-4 h-px"
-                  style={{ backgroundColor: "#C9D8E5" }}
-                />
 
-                <div className="mt-4 space-y-3">
-                  <AnimatePresence initial={false}>
-                    {workflowSteps.map(
-                      ({ title, text, badge, icon: Icon }, index) => {
-                        const isLast = index === workflowSteps.length - 1;
-                        const isCompleted = !reduceMotion && index < activeWorkflowIndex;
-                        const isActive = reduceMotion
-                          ? index === workflowSteps.length - 1
-                          : index === activeWorkflowIndex;
-                        const isPending = !isCompleted && !isActive;
-                        const badgeLabel =
-                          isCompleted || (isLast && isActive) ? "Done" : badge;
-
-                        return (
-                          <motion.div
-                            key={title}
-                            initial={
-                              reduceMotion ? false : { opacity: 0, y: 10 }
-                            }
-                            transition={{
-                              duration: 0.38,
-                              delay: 0.14 + index * 0.05,
-                              ease: [0.16, 1, 0.3, 1],
-                            }}
-                            animate={
-                              reduceMotion
-                                ? undefined
-                                : isActive
-                                  ? {
-                                    opacity: 1,
-                                    y: [0, -2, 0],
-                                    scale: [1, 1.01, 1],
-                                  }
-                                  : {
-                                    opacity: 1,
-                                    y: 0,
-                                    scale: 1,
-                                  }
-                            }
-                            whileHover={{ y: -2 }}
-                            className="flex items-center gap-4 rounded-2xl border px-4 py-2.5"
-                            style={{
-                              backgroundColor:
-                                isActive
-                                  ? "rgba(255,255,255,0.98)"
-                                  : isLast
-                                    ? "#FFFFFF"
-                                    : "rgba(255,255,255,0.84)",
-                              borderColor:
-                                isActive
-                                  ? "#9DB9D7"
-                                  : isLast
-                                    ? "#C8D9E6"
-                                    : "rgba(255,255,255,0.75)",
-                              boxShadow: isActive
-                                ? "0 14px 28px rgba(16,36,90,0.11)"
-                                : "0 8px 20px rgba(16,36,90,0.045)",
-                            }}
-                          >
-                            <motion.div
-                              className="flex shrink-0 items-center justify-center rounded-xl"
-                              style={{
-                                width: "38px",
-                                height: "38px",
-                                backgroundColor:
-                                  isCompleted || (isLast && isActive)
-                                    ? colors.navy
-                                    : isActive
-                                      ? "#D7E9F8"
-                                      : isLast
-                                        ? colors.navy
-                                        : colors.blueSoft,
-                                color:
-                                  isCompleted || isLast
-                                    ? "#FFFFFF"
-                                    : isActive
-                                      ? colors.navy
-                                      : "#466890",
-                              }}
-                              animate={
-                                reduceMotion
-                                  ? undefined
-                                  : isActive
-                                    ? {
-                                      scale: [1, 1.08, 1],
-                                    }
-                                    : {
-                                      scale: 1,
-                                    }
-                              }
-                              transition={{
-                                duration: 0.7,
-                                ease: [0.16, 1, 0.3, 1],
-                              }}
-                            >
-                              <Icon size={17} strokeWidth={2.25} />
-                            </motion.div>
-
-                            <div className="min-w-0 flex-1">
-                              <h3
-                                className="font-black leading-tight tracking-tight"
-                                style={{
-                                  color: colors.dark,
-                                  fontSize: "16px",
-                                }}
-                              >
-                                {title}
-                              </h3>
-
-                              <p
-                                className="mt-1 font-medium leading-relaxed tracking-tight"
-                                style={{
-                                  color: "rgba(41,65,96,0.9)",
-                                  fontSize: "12.5px",
-                                }}
-                              >
-                                {text}
-                              </p>
-                            </div>
-
-                            <motion.div
-                              className="shrink-0 rounded-full px-3 py-2 font-black uppercase tracking-wide"
-                              style={{
-                                backgroundColor:
-                                  isCompleted || (isLast && isActive)
-                                    ? "#DDECF8"
-                                    : isActive
-                                      ? "#10245A"
-                                      : isPending && isLast
-                                        ? "#DDECF8"
-                                        : "#22385E",
-                                color:
-                                  isCompleted || isPending && isLast
-                                    ? colors.navy
-                                    : "#FFFFFF",
-                                fontSize: "10px",
-                              }}
-                              animate={
-                                reduceMotion
-                                  ? undefined
-                                  : isActive
-                                    ? {
-                                      x: [0, 3, 0],
-                                      scale: [1, 1.04, 1],
-                                    }
-                                    : {
-                                      x: 0,
-                                      scale: 1,
-                                    }
-                              }
-                              transition={{
-                                duration: 0.75,
-                                ease: [0.16, 1, 0.3, 1],
-                              }}
-                            >
-                              <AnimatePresence mode="wait" initial={false}>
-                                <motion.span
-                                  key={`${title}-${badgeLabel}`}
-                                  initial={reduceMotion ? false : { opacity: 0, y: 6 }}
-                                  animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-                                  exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
-                                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                                  className="block"
-                                >
-                                  {badgeLabel}
-                                </motion.span>
-                              </AnimatePresence>
-                            </motion.div>
-                          </motion.div>
-                        );
-                      }
-                    )}
-                  </AnimatePresence>
-                </div>
+                {/* donut */}
 
                 <div
-                  className="mt-4 border-t pt-4"
-                  style={{ borderColor: "#C9D8E5" }}
-                >
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p
-                        className="font-black uppercase tracking-widest"
-                        style={{
-                          color: "#466890",
-                          fontSize: "10px",
-                        }}
-                      >
-                        Final Output
-                      </p>
-
-                      <p
-                        className="mt-1 font-black leading-tight tracking-tight"
-                        style={{
-                          color: colors.dark,
-                          fontSize: "16px",
-                        }}
-                      >
-                        ATS score + guided fixes
-                      </p>
-                    </div>
-
-                    <div
-                      className="flex shrink-0 items-center justify-center rounded-2xl bg-white"
-                      style={{
-                        width: "42px",
-                        height: "42px",
-                        color: colors.navy,
-                        boxShadow: "0 10px 22px rgba(16,36,90,0.12)",
-                      }}
-                    >
-                      <ArrowRight size={17} className="rotate-90" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-
-      </div>
-
-      {typeof document !== "undefined"
-        ? createPortal(
-          <AnimatePresence>
-            {isSampleReportOpen ? (
-              <motion.div
-                initial={reduceMotion ? false : { opacity: 0 }}
-                animate={reduceMotion ? undefined : { opacity: 1 }}
-                exit={reduceMotion ? undefined : { opacity: 0 }}
-                transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-                className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/55 p-4"
-              >
-                <motion.div
-                  initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.985 }}
-                  animate={reduceMotion ? undefined : { opacity: 1, y: 0, scale: 1 }}
-                  exit={reduceMotion ? undefined : { opacity: 0, y: 8, scale: 0.99 }}
-                  transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
-                  className="flex h-[92vh] w-full max-w-[1180px] flex-col overflow-hidden rounded-[28px] border bg-white shadow-[0_28px_80px_rgba(16,36,90,0.22)]"
-                  style={{ borderColor: "#D8DFE7" }}
+                  className="
+                    relative
+                    mx-auto
+                    mt-3
+                    flex
+                    h-[98px]
+                    w-[98px]
+                    items-center
+                    justify-center
+                    rounded-full
+                  "
+                  style={{
+                    background:
+                      "conic-gradient(#D9A534 0deg 140deg, #EAC455 140deg 190deg, #55BE83 190deg 281deg, #EEF0E9 281deg 360deg)",
+                  }}
                 >
                   <div
-                    className="flex items-center justify-between gap-4 border-b px-5 py-4"
-                    style={{
-                      borderColor: "#E4DDD4",
-                      background:
-                        "linear-gradient(180deg, rgba(246,241,234,0.7), rgba(255,255,255,0.95))",
-                    }}
+                    className="
+                      flex
+                      h-[72px]
+                      w-[72px]
+                      items-center
+                      justify-center
+                      rounded-full
+                      bg-white
+                    "
                   >
-                    <div className="min-w-0">
-                      <p
-                        className="font-black uppercase tracking-[0.18em]"
-                        style={{ color: "#5E7EA3", fontSize: "10px" }}
+                    <span
+                      className="
+                        text-[23px]
+                        font-black
+                        tracking-[-0.05em]
+                        text-[#0D2E4A]
+                      "
+                    >
+                      78%
+                    </span>
+                  </div>
+                </div>
+
+
+                <p
+                  className="
+                    mt-2
+                    text-center
+                    text-[14px]
+                    font-black
+                    text-[#199466]
+                  "
+                >
+                  Good Match
+                </p>
+
+
+                <p
+                  className="
+                    mx-auto
+                    mt-1
+                    max-w-[180px]
+                    text-center
+                    text-[7px]
+                    font-medium
+                    leading-[1.4]
+                    text-[#718A99]
+                  "
+                >
+                  Your resume is well aligned,
+                  with opportunities to improve.
+                </p>
+
+
+                <div
+                  className="
+                    mt-3.5
+                    space-y-2
+                  "
+                >
+                  <MetricRow
+                    value="12"
+                    label="Keywords Found"
+                    tone="green"
+                  />
+
+                  <MetricRow
+                    value="6"
+                    label="Missing Keywords"
+                    tone="red"
+                  />
+
+                  <MetricRow
+                    value="3"
+                    label="Content Suggestions"
+                    tone="red"
+                  />
+
+                  <MetricRow
+                    value="2"
+                    label="Formatting Issues"
+                    tone="green"
+                  />
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+
+      {/* =====================================================
+          SAMPLE REPORT MODAL
+          ===================================================== */}
+
+      {typeof document !==
+      "undefined"
+        ? createPortal(
+            <AnimatePresence>
+              {isSampleReportOpen ? (
+                <motion.div
+                  initial={
+                    reduceMotion
+                      ? false
+                      : {
+                          opacity: 0,
+                        }
+                  }
+                  animate={
+                    reduceMotion
+                      ? undefined
+                      : {
+                          opacity: 1,
+                        }
+                  }
+                  exit={
+                    reduceMotion
+                      ? undefined
+                      : {
+                          opacity: 0,
+                        }
+                  }
+                  transition={{
+                    duration: 0.22,
+                    ease: [
+                      0.16,
+                      1,
+                      0.3,
+                      1,
+                    ],
+                  }}
+                  className="
+                    fixed
+                    inset-0
+                    z-[9999]
+                    flex
+                    items-center
+                    justify-center
+                    bg-[#061929]/72
+                    p-4
+                    backdrop-blur-sm
+                  "
+                  onMouseDown={(
+                    event
+                  ) => {
+                    if (
+                      event.target ===
+                      event.currentTarget
+                    ) {
+                      setIsSampleReportOpen(
+                        false
+                      );
+                    }
+                  }}
+                >
+                  <motion.div
+                    initial={
+                      reduceMotion
+                        ? false
+                        : {
+                            opacity: 0,
+                            y: 12,
+                            scale: 0.985,
+                          }
+                    }
+                    animate={
+                      reduceMotion
+                        ? undefined
+                        : {
+                            opacity: 1,
+                            y: 0,
+                            scale: 1,
+                          }
+                    }
+                    exit={
+                      reduceMotion
+                        ? undefined
+                        : {
+                            opacity: 0,
+                            y: 8,
+                            scale: 0.99,
+                          }
+                    }
+                    transition={{
+                      duration: 0.28,
+                      ease: [
+                        0.16,
+                        1,
+                        0.3,
+                        1,
+                      ],
+                    }}
+                    className="
+                      flex
+                      h-[92vh]
+                      w-full
+                      max-w-[1180px]
+                      flex-col
+                      overflow-hidden
+                      rounded-[24px]
+                      border
+                      border-[#D8DFE7]
+                      bg-white
+                      shadow-[0_28px_80px_rgba(16,36,90,.22)]
+                    "
+                  >
+                    {/* Modal header */}
+
+                    <div
+                      className="
+                        flex
+                        items-center
+                        justify-between
+                        gap-4
+                        border-b
+                        border-[#E4DDD4]
+                        bg-[#FAF6EF]
+                        px-5
+                        py-4
+                      "
+                    >
+                      <div className="min-w-0">
+                        <p
+                          className="
+                            text-[9px]
+                            font-black
+                            uppercase
+                            tracking-[0.18em]
+                            text-[#69879A]
+                          "
+                        >
+                          Sample Report
+                        </p>
+
+                        <h3
+                          className="
+                            mt-1
+                            truncate
+                            text-[20px]
+                            font-black
+                            tracking-[-0.025em]
+                            text-[#0D2E4A]
+                          "
+                        >
+                          ATS Resume Checker PDF
+                        </h3>
+                      </div>
+
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setIsSampleReportOpen(
+                            false
+                          )
+                        }
+                        className="
+                          inline-flex
+                          h-11
+                          w-11
+                          items-center
+                          justify-center
+                          rounded-xl
+                          border
+                          border-[#D8DFE7]
+                          bg-white
+                          text-[#0D2E4A]
+                          shadow-sm
+                          transition
+                          hover:-translate-y-0.5
+                        "
+                        aria-label="Close sample report"
                       >
-                        Sample Report
-                      </p>
-                      <h3
-                        className="mt-1 truncate font-black tracking-tight"
-                        style={{ color: colors.navy, fontSize: "20px" }}
-                      >
-                        ATS Resume Checker PDF
-                      </h3>
+                        <X size={18} />
+                      </button>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setIsSampleReportOpen(false)}
-                      className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border bg-white transition duration-300 hover:-translate-y-0.5"
-                      style={{
-                        color: colors.navy,
-                        borderColor: "#D8DFE7",
-                        boxShadow: "0 12px 22px rgba(16,36,90,0.08)",
-                      }}
-                      aria-label="Close sample report"
-                    >
-                      <X size={18} />
-                    </button>
-                  </div>
 
-                  <div className="flex-1 overflow-hidden bg-[#F6F1EA] p-3 sm:p-4">
-                    <iframe
-                      src="/ATS%20Resume%20Checker.pdf#toolbar=0&navpanes=0&scrollbar=1"
-                      title="Sample ATS report PDF"
-                      className="h-full w-full rounded-[22px] border bg-white shadow-[0_18px_48px_rgba(16,36,90,0.14)]"
-                      style={{ borderColor: "#D8DFE7" }}
-                    />
-                  </div>
+                    {/* PDF */}
+
+                    <div
+                      className="
+                        flex-1
+                        overflow-hidden
+                        bg-[#F6F1EA]
+                        p-3
+                        sm:p-4
+                      "
+                    >
+                      <iframe
+                        src="/ATS%20Resume%20Checker.pdf#toolbar=0&navpanes=0&scrollbar=1"
+                        title="Sample ATS report PDF"
+                        className="
+                          h-full
+                          w-full
+                          rounded-[18px]
+                          border
+                          border-[#D8DFE7]
+                          bg-white
+                          shadow-[0_18px_48px_rgba(16,36,90,.14)]
+                        "
+                      />
+                    </div>
+                  </motion.div>
                 </motion.div>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>,
-          document.body
-        )
+              ) : null}
+            </AnimatePresence>,
+            document.body
+          )
         : null}
-    </section>
+    </>
   );
 };
+
 
 export default ATSHero;

@@ -1,10 +1,16 @@
 import React from "react";
-import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import {
   ArrowLeft,
   ChevronRight,
+  ChevronDown,
   Check,
   FileText,
+  FilePenLine,
+  ScrollText,
+  MessagesSquare,
+  Award,
+  Gamepad2,
   LayoutDashboard,
   ReceiptText,
   Zap,
@@ -12,21 +18,32 @@ import {
   Menu,
   X,
 } from "lucide-react";
-import { SignedIn, SignedOut, SignInButton, useAuth, useUser } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, SignInButton, useUser } from "@clerk/clerk-react";
 import useResumeStore from "../../store/useResumeStore";
 import colorLogo from "../../assets/logos/BlueLogo.png";
-import apiClient from "../../services/apiClient";
+import { calculateAtsUsage } from "../../services/subscriptionService";
+import goldenLogo from "../../assets/logos/GoldenLogo.png";
 import CustomUserButton from "../common/CustomUserButton";
 
-import { calculateAtsUsage } from "../../services/subscriptionService";
+const atsCareerTools = [
+  { href: "https://resume.careersenseai.com/", label: "AI Resume Builder", description: "Create an ATS-ready resume", icon: FilePenLine, tone: "text-blue-700 bg-blue-100" },
+  { href: "https://coverletter.careersenseai.com/", label: "Cover Letter Builder", description: "Write a tailored introduction", icon: ScrollText, tone: "text-violet-700 bg-violet-100" },
+  { href: "https://careersenseai.com/interview-simulator", label: "Interview Simulator", description: "Practise role-specific interviews", icon: MessagesSquare, tone: "text-amber-700 bg-amber-100" },
+  { href: "https://certifi.careersenseai.com/", label: "Skill Certification", description: "Prove job-ready capabilities", icon: Award, tone: "text-cyan-700 bg-cyan-100" },
+];
 
 function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { userId } = useAuth();
   const { user } = useUser();
   const isLandingPage = location.pathname === "/";
+  const isDarkNavbarPage =
+    location.pathname.startsWith("/check-ats/resume") ||
+    location.pathname.startsWith("/reports/analysis/") ||
+    location.pathname.startsWith("/reports/basic/") ||
+    location.pathname.startsWith("/repository/report/");
   const [isMobileNavOpen, setIsMobileNavOpen] = React.useState(false);
+  const [toolsOpen, setToolsOpen] = React.useState(false);
   const [subData, setSubData] = React.useState({ plan: "free", tokensRemaining: 30000 });
 
   const currentResume = useResumeStore((state) => state.currentResume);
@@ -36,80 +53,49 @@ function Navbar() {
   const [estimatedCost, setEstimatedCost] = React.useState(0);
 
   React.useEffect(() => {
-    let active = true;
-    const fetchAllData = async () => {
+    if (!user?.id) return;
+    const fetchSub = async () => {
       try {
         const apiBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE_URL || "https://server.datasenseai.com";
         const backendUrl = apiBase.replace(/\/careersense\/ats\/?$/, "");
-
-        const promises = [
-          apiClient.get("/all").catch(() => ({ data: {} })),
-          apiClient.get("/job-descriptions").catch(() => ({ data: {} })),
-        ];
-
-        if (user?.id) {
-          promises.push(
-            fetch(`${backendUrl}/careersense/subscription/status?clerkId=${user.id}`)
-              .then(r => r.json())
-              .catch(() => ({})),
-            fetch(`${backendUrl}/careersense/subscription/ledger?clerkId=${user.id}`)
-              .then(r => r.json())
-              .catch(() => ({}))
-          );
+        const res = await fetch(`${backendUrl}/careersense/subscription/status?clerkId=${user.id}`);
+        const data = await res.json();
+        if (data.success) {
+          setSubData({ plan: data.plan || "free", tokensRemaining: data.tokensRemaining ?? 30000 });
         }
 
-        const results = await Promise.all(promises);
-        if (!active) return;
-
-        const resumesRes = results[0];
-        const jdsRes = results[1];
-        const subRes = user?.id ? results[2] : null;
-        const ledgerRes = user?.id ? results[3] : null;
-
-        if (subRes?.success) {
-          setSubData({ plan: subRes.plan || "free", tokensRemaining: subRes.tokensRemaining ?? 30000 });
+        const ledgerRes = await fetch(`${backendUrl}/careersense/subscription/ledger?clerkId=${user.id}`);
+        if (ledgerRes.ok) {
+          const ledgerData = await ledgerRes.json();
+          const serverLedger = Array.isArray(ledgerData.ledger) ? ledgerData.ledger : [];
+          const usage = calculateAtsUsage(serverLedger, [], [], []);
+          setTotalPoints(usage.totalPoints);
+          setEstimatedCost(usage.estimatedCost);
         }
-
-        const storedResumes = resumesRes?.data?.storedResumes || [];
-        const storedJds = jdsRes?.data?.storedJobDescriptions || [];
-        const serverLedger = Array.isArray(ledgerRes?.ledger) ? ledgerRes.ledger : [];
-
-        const reports = storedResumes
-          .filter((r) => r.latestAnalysis && r.latestAnalysis.overall_score)
-          .map((r) => ({
-            report_id: r.resume_id,
-            overall_score: r.latestAnalysis.overall_score,
-            has_job_description: !!r.latestAnalysis.jdText,
-            total_tokens: r.latestAnalysis.total_tokens || r.latestAnalysis.careerPoints || r.latestAnalysis.tokensCost || 0
-          }));
-
-        const usage = calculateAtsUsage(serverLedger, reports, storedResumes, storedJds);
-        setTotalPoints(usage.totalPoints);
-        setEstimatedCost(usage.estimatedCost);
       } catch (err) {
-        console.error("Navbar failed to fetch usage metrics:", err);
+        console.error("Error fetching subscription in Navbar:", err);
       }
     };
+    fetchSub();
 
-    if (userId || user?.id) {
-      fetchAllData();
-    }
+    const handleTokensUpdated = () => fetchSub();
+    window.addEventListener("careersense:tokens-updated", handleTokensUpdated);
     return () => {
-      active = false;
+      window.removeEventListener("careersense:tokens-updated", handleTokensUpdated);
     };
-  }, [currentResume, userId, user?.id]);
+  }, [user?.id]);
 
   const workflowSteps = isResumeJdFlow
     ? [
       { key: "details", label: "Details" },
       { key: "resume", label: "Resume" },
       { key: "job", label: "Job Details" },
-      { key: "editor", label: "Editor" },
+      { key: "report", label: "Report" },
     ]
     : [
       { key: "details", label: "Details" },
       { key: "resume", label: "Resume" },
-      { key: "editor", label: "Editor" },
+      { key: "report", label: "Report" },
     ];
 
   const getCurrentStep = () => {
@@ -131,6 +117,7 @@ function Navbar() {
       }
       if (
         location.pathname.startsWith("/reports/analysis/") ||
+        location.pathname.startsWith("/reports/basic/") ||
         location.pathname.startsWith("/repository/report/")
       ) {
         return 4;
@@ -138,6 +125,7 @@ function Navbar() {
     } else {
       if (
         location.pathname.startsWith("/reports/analysis/") ||
+        location.pathname.startsWith("/reports/basic/") ||
         location.pathname.startsWith("/repository/report/")
       ) {
         return 3;
@@ -198,14 +186,14 @@ function Navbar() {
 
   const InternalLogo = () => (
     <Link to="/" className="flex shrink-0 items-center gap-3">
-      <img src={colorLogo} alt="CareerSense Logo" className="h-10 w-10 sm:h-12 sm:w-12 object-contain rounded-2xl shadow-xs shrink-0" />
+      <img src={isDarkNavbarPage ? goldenLogo : colorLogo} alt="CareerSense Logo" className="h-10 w-10 sm:h-12 sm:w-12 object-contain rounded-2xl shadow-xs shrink-0" />
 
-      <div className="pr-3 xl:border-r xl:border-[#D6E1E9]">
+      <div className={`pr-3 xl:border-r ${isDarkNavbarPage ? "xl:border-white/20" : "xl:border-[#D6E1E9]"}`}>
         <h1 className="text-[25px] font-black leading-none tracking-[-0.04em]">
           {/* CareerSense */}
-          <span className="text-[#0D2E63]">Career</span><span className="text-[#306099]">Sense</span>
+          <span className={isDarkNavbarPage ? "text-[#FFF8E9]" : "text-[#0B3453]"}>Career</span><span className="text-[#C88A26]">Sense</span>
         </h1>
-        <p className="mt-1 text-[9px] font-black uppercase tracking-[0.28em] text-[#6B87A0]">
+        <p className={`mt-1 text-[9px] font-black uppercase tracking-[0.28em] ${isDarkNavbarPage ? "text-[#D7E3E9]" : "text-[#56768A]"}`}>
           ATS Intelligence
         </p>
       </div>
@@ -219,9 +207,9 @@ function Navbar() {
       <div>
         <h1 className="text-[25px] font-black leading-none tracking-[-0.04em]">
           {/* CareerSense */}
-          <span className="text-[#0D2E63]">Career</span><span className="text-[#306099]">Sense</span>
+          <span className="text-[#0B3453]">Career</span><span className="text-[#C88A26]">Sense</span>
         </h1>
-        <p className="mt-1 text-[9px] font-black uppercase tracking-[0.28em] text-[#6B87A0]">
+        <p className="mt-1 text-[9px] font-black uppercase tracking-[0.28em] text-[#56768A]">
           ATS Intelligence
         </p>
       </div>
@@ -229,7 +217,7 @@ function Navbar() {
   );
 
   const InternalStepper = () => (
-    <nav className="flex min-w-0 flex-1 items-center justify-center gap-1 overflow-hidden px-2">
+    <nav className="flex min-w-0 flex-1 items-center justify-center overflow-hidden px-1">
       {workflowSteps.map((step, index) => {
         const stepNumber = index + 1;
         const isComplete = stepNumber < currentStep;
@@ -238,22 +226,22 @@ function Navbar() {
         return (
           <React.Fragment key={step.key}>
             <div
-              className={`flex min-w-0 items-center gap-1.5 rounded-full px-2 py-1.5 transition ${isCurrent ? "bg-[#E8EEF4]" : "bg-transparent"
+              className={`flex min-w-0 shrink items-center gap-1 rounded-full px-1.5 py-1 transition ${isCurrent ? (isDarkNavbarPage ? "bg-white/10" : "bg-[#E8EEF4]") : "bg-transparent"
                 }`}
             >
               <div
-                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-black ${isComplete
-                  ? "bg-[#6D879A] text-white"
+                className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${isComplete
+                  ? (isDarkNavbarPage ? "bg-[#C88A26] text-[#062E47]" : "bg-[#6D879A] text-white")
                   : isCurrent
-                    ? "bg-[#2F4054] text-white"
-                    : "bg-[#D8E3EB] text-[#6B87A0]"
+                    ? (isDarkNavbarPage ? "bg-[#FFF8E9] text-[#062E47]" : "bg-[#2F4054] text-white")
+                    : (isDarkNavbarPage ? "bg-white/15 text-[#D7E3E9]" : "bg-[#D8E3EB] text-[#6B87A0]")
                   }`}
               >
                 {isComplete ? <Check className="h-3.5 w-3.5" /> : stepNumber}
               </div>
 
               <span
-                className={`hidden whitespace-nowrap text-[13px] font-black tracking-tight xl:inline ${isCurrent ? "text-[#2F4054]" : "text-[#6B87A0]"
+                className={`hidden whitespace-nowrap text-[12px] font-black tracking-tight xl:inline ${isDarkNavbarPage ? (isCurrent ? "text-[#FFF8E9]" : "text-[#B9CBD5]") : (isCurrent ? "text-[#2F4054]" : "text-[#6B87A0]")
                   }`}
               >
                 {step.label}
@@ -261,7 +249,7 @@ function Navbar() {
             </div>
 
             {index < workflowSteps.length - 1 ? (
-              <div className="hidden h-px w-8 shrink-0 bg-[#A8B8C4] xl:block" />
+              <div className={`mx-1 hidden h-px min-w-2 max-w-5 flex-1 xl:block ${isDarkNavbarPage ? "bg-white/25" : "bg-[#A8B8C4]"}`} />
             ) : null}
           </React.Fragment>
         );
@@ -272,6 +260,14 @@ function Navbar() {
   const InternalActions = () => (
     <div className="flex shrink-0 items-center gap-2">
       <InternalUsagePill />
+
+      <Link
+        to="/play-with-resume"
+        className="flex h-10 items-center gap-2 rounded-xl border border-[#D6A33D] bg-[#FFF3D7] px-3 text-[13px] font-black text-[#8B5B0E] shadow-[0_8px_20px_rgba(143,93,14,0.08)] transition hover:-translate-y-0.5 hover:bg-[#FFEAC0]"
+      >
+        <Gamepad2 className="h-4 w-4" />
+        <span className="hidden 2xl:inline">Resume Quest</span>
+      </Link>
 
       <Link to="/dashboard">
         <button
@@ -298,8 +294,10 @@ function Navbar() {
     <header
       className={
         isLandingPage
-          ? "relative z-50 w-full border-b border-[#D6E1E9]/60 bg-[#F6F1EA]/95 shadow-[0_10px_30px_rgba(0,0,0,0.12)] backdrop-blur-md"
-          : "relative z-50 w-full border-b backdrop-blur-xl border-[#D6E1E9]/45 bg-[#F7F3ED]/96 shadow-[0_10px_30px_rgba(0,0,0,0.12)]"
+          ? "relative z-50 w-full border-b border-[#D9C9AA]/65 bg-[#FBF8F1]/96 shadow-[0_8px_24px_rgba(11,52,83,0.10)] backdrop-blur-md"
+          : isDarkNavbarPage
+            ? "brand-type relative z-50 w-full border-b border-[#C99531]/35 bg-[rgba(6,46,71,0.96)] text-[#FFF8E9] shadow-[0_10px_30px_rgba(3,25,39,0.20)] backdrop-blur-xl"
+            : "relative z-50 w-full border-b backdrop-blur-xl border-[#D6E1E9]/45 bg-[#F7F3ED]/96 shadow-[0_10px_30px_rgba(0,0,0,0.12)]"
       }
     >
       <div
@@ -313,34 +311,98 @@ function Navbar() {
           {isLandingPage ? <LandingLogo /> : <InternalLogo />}
 
           {isLandingPage ? (
-            <nav className="hidden items-center gap-8 md:flex">
-              <button
-                onClick={() => handleScroll("home")}
-                className="text-xs font-bold text-slate-600 transition hover:text-royalblue"
+            <nav className="hidden items-center gap-6 md:flex">
+              <div
+                className="relative shrink-0"
+                onMouseEnter={() => setToolsOpen(true)}
+                onMouseLeave={() => setToolsOpen(false)}
               >
-                Home
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setToolsOpen((val) => !val)}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#38566C] transition hover:text-[#B8791D]"
+                >
+                  Career Tools
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${toolsOpen ? "rotate-180" : ""}`} />
+                </button>
+                {toolsOpen && (
+                  <div className="absolute left-0 top-full w-[330px] pt-3 z-50">
+                    <div
+                      className="rounded-2xl border border-[#D9C9AA] p-2.5 shadow-[0_20px_50px_rgba(11,52,83,0.22)] text-[#103650]"
+                      style={{ backgroundColor: '#FAF6ED' }}
+                    >
+                      <div className="px-3 pb-2 pt-1 text-[10px] font-black uppercase tracking-[0.16em] text-[#B8791D]">
+                        CareerSense Tools
+                      </div>
+                      {atsCareerTools.map((tool) => {
+                        const Icon = tool.icon;
+                        return (
+                          <a
+                            key={tool.label}
+                            href={tool.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-[#F0E6D2]"
+                          >
+                            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tool.tone}`}>
+                              <Icon size={17} />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block text-xs font-extrabold text-[#103650]">{tool.label}</span>
+                              <span className="mt-0.5 block truncate text-[11px] text-[#5D7B8C]">{tool.description}</span>
+                            </span>
+                          </a>
+                        );
+                      })}
+                      <a
+                        href="https://careersenseai.com/#career-tools"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 flex items-center justify-between rounded-xl px-3 py-2 text-xs font-black text-[#B8791D] transition hover:bg-[#F0E6D2]"
+                      >
+                        Explore all career tools
+                        <span aria-hidden="true">→</span>
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <button
                 onClick={() => handleScroll("why-careersense")}
-                className="text-xs font-bold text-slate-600 transition hover:text-royalblue"
+                className="text-xs font-bold text-[#38566C] transition hover:text-[#B8791D]"
               >
                 Why CareerSense
               </button>
 
               <button
+                onClick={() => handleScroll("ats-report-coverage")}
+                className="text-xs font-bold text-[#38566C] transition hover:text-[#B8791D]"
+              >
+                ATS Report
+              </button>
+
+              <button
                 onClick={() => handleScroll("how-it-works")}
-                className="text-xs font-bold text-slate-600 transition hover:text-royalblue"
+                className="text-xs font-bold text-[#38566C] transition hover:text-[#B8791D]"
               >
                 How It Works
               </button>
 
-              <button
-                onClick={() => handleScroll("testimony")}
-                className="text-xs font-bold text-slate-600 transition hover:text-royalblue"
+              <Link
+                to="/play-with-resume"
+                className="relative inline-flex items-center gap-1.5 rounded-lg border border-[#D6A33D]/70 bg-[#FFF3D7] px-3 py-2 text-xs font-black text-[#8B5B0E] transition hover:border-[#C88A26] hover:bg-[#FFEAC0]"
               >
-                Testimonials
-              </button>
+                <Gamepad2 className="h-3.5 w-3.5" />
+                Resume Quest
+                <span className="absolute -right-3 -top-2 inline-flex items-center gap-1 rounded-full border border-[#BDE6D2] bg-[#EAF8F1] px-1.5 py-0.5 text-[8px] font-black uppercase leading-none tracking-[0.08em] text-[#147A56] shadow-sm">
+                  <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#27A878] opacity-50 motion-reduce:animate-none" />
+                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#16865E]" />
+                  </span>
+                  Play &amp; Win AI Tokens
+                </span>
+              </Link>
             </nav>
           ) : (
             <div className="hidden min-w-0 flex-1 items-center gap-3 lg:flex">
@@ -356,7 +418,7 @@ function Navbar() {
                   <SignInButton mode="modal">
                     <button
                       type="button"
-                      className="flex items-center gap-1 rounded-lg border border-royalblue/30 px-4 py-2 text-xs font-bold text-royalblue hover:bg-royalblue/5 transition"
+                      className="flex items-center gap-1 rounded-lg border border-[#0B3453]/25 bg-[#FFFDF8] px-4 py-2 text-xs font-bold text-[#0B3453] transition hover:border-[#C88A26]/60 hover:bg-[#F8EEDB]"
                     >
                       Sign In
                     </button>
@@ -368,7 +430,7 @@ function Navbar() {
                     <Link to="/dashboard" className="shrink-0">
                       <button
                         type="button"
-                        className="flex items-center gap-1 rounded-lg bg-royalblue px-4 py-2 text-xs font-bold text-swanwing shadow-sm transition hover:bg-sapphire"
+                        className="flex items-center gap-1 rounded-lg bg-[#0B3453] px-4 py-2 text-xs font-bold text-[#FFF9EC] shadow-sm transition hover:bg-[#124767]"
                       >
                         Dashboard
                         <ChevronRight className="h-3.5 w-3.5" />
@@ -412,15 +474,24 @@ function Navbar() {
           <div className={`w-full border-t border-[#D6E1E9]/40 mt-3 pt-3 ${isLandingPage ? "md:hidden" : "lg:hidden"}`}>
             {isLandingPage ? (
               <nav className="flex flex-col gap-2.5">
-                <button
-                  onClick={() => {
-                    handleScroll("home");
-                    setIsMobileNavOpen(false);
-                  }}
-                  className="w-full text-left rounded-lg bg-white/40 px-3 py-2.5 text-xs font-bold text-slate-600 hover:bg-white transition"
-                >
-                  Home
-                </button>
+                <div className="rounded-xl border border-[#D9C9AA]/60 bg-white/70 p-2.5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#B8791D] mb-1.5">Career Tools</p>
+                  <div className="flex flex-col gap-1">
+                    {atsCareerTools.map((tool) => (
+                      <a
+                        key={tool.label}
+                        href={tool.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between rounded-lg px-2 py-1.5 text-xs font-bold text-[#103650] hover:bg-[#F3EADB]/60"
+                      >
+                        <span>{tool.label}</span>
+                        <span className="text-[10px] text-[#B8791D]">↗</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+
                 <button
                   onClick={() => {
                     handleScroll("why-careersense");
@@ -432,6 +503,15 @@ function Navbar() {
                 </button>
                 <button
                   onClick={() => {
+                    handleScroll("ats-report-coverage");
+                    setIsMobileNavOpen(false);
+                  }}
+                  className="w-full text-left rounded-lg bg-white/40 px-3 py-2.5 text-xs font-bold text-slate-600 hover:bg-white transition"
+                >
+                  ATS Report
+                </button>
+                <button
+                  onClick={() => {
                     handleScroll("how-it-works");
                     setIsMobileNavOpen(false);
                   }}
@@ -439,15 +519,21 @@ function Navbar() {
                 >
                   How It Works
                 </button>
-                <button
-                  onClick={() => {
-                    handleScroll("testimony");
-                    setIsMobileNavOpen(false);
-                  }}
-                  className="w-full text-left rounded-lg bg-white/40 px-3 py-2.5 text-xs font-bold text-slate-600 hover:bg-white transition"
+
+                <Link
+                  to="/play-with-resume"
+                  onClick={() => setIsMobileNavOpen(false)}
+                  className="flex w-full items-center justify-between gap-2 rounded-lg border border-[#D6A33D] bg-[#FFF3D7] px-3 py-2.5 text-xs font-black text-[#8B5B0E] transition hover:bg-[#FFEAC0]"
                 >
-                  Testimonials
-                </button>
+                  <span className="inline-flex items-center gap-2">
+                    <Gamepad2 className="h-4 w-4" />
+                    Start Resume Quest
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[#BDE6D2] bg-[#EAF8F1] px-2 py-1 text-[9px] font-black uppercase leading-none tracking-[0.08em] text-[#147A56]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#16865E]" aria-hidden="true" />
+                    Play &amp; Win AI Tokens
+                  </span>
+                </Link>
 
                 <div className="border-t border-[#D6E1E9]/30 mt-1 pt-2">
                   <SignedOut>
@@ -526,6 +612,15 @@ function Navbar() {
                 </div>
 
                 {/* Navigation actions */}
+                <Link
+                  to="/play-with-resume"
+                  onClick={() => setIsMobileNavOpen(false)}
+                  className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-[#D6A33D] bg-[#FFF3D7] px-3 text-[13px] font-black text-[#8B5B0E]"
+                >
+                  <Gamepad2 className="h-4 w-4" />
+                  Start Resume Quest
+                </Link>
+
                 <div className="grid grid-cols-2 gap-2">
                   <Link to="/dashboard" onClick={() => setIsMobileNavOpen(false)} className="w-full">
                     <button
