@@ -1,178 +1,284 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+
 import {
-  CheckCircle2,
+  ArrowRight,
   Clock3,
   FileText,
   FolderOpen,
   ShieldCheck,
+  Sparkles,
   Target,
   UploadCloud,
+  Zap,
 } from "lucide-react";
 
 import Button from "../components/common/Button";
-import Loader from "../components/common/Loader";
 import Toast from "../components/common/Toast";
-import AnimatedHeroBackground from "../components/layout/AnimatedHeroBackground";
+import ReportGenerationLoader from "../components/common/ReportGenerationLoader";
+
 import {
   getJobDescription,
   getJobDescriptions,
   uploadJobDescriptionFile,
 } from "../services/jobDescriptionApi";
+
 import { generateAnalysisReport } from "../services/reportApi";
+
+import {
+  DEFAULT_REPORT_LEVEL,
+  generateBasicAnalysisReport,
+  REPORT_LEVELS,
+  ReportTypeSelector,
+} from "../basicreport";
+
 import { getResume } from "../services/resumeApi";
 import useResumeStore from "../store/useResumeStore";
 import { validateJobDescriptionFile } from "../utils/fileValidation";
 
-const colors = {
-  cream: "#F6F1EA",
-  border: "#CFE0EC",
-  navy: "#10245A",
-  dark: "#2F4054",
-  muted: "#5C8194",
-  softBlue: "#E7F0F8",
-};
+import resumeUploadBackground from "../assets/home/resumeupload.png";
+
+/* =========================================================
+   LEFT PANEL DATA
+========================================================= */
 
 const jdBullets = [
   {
-    title: "Role alignment",
-    text: "Compare your resume with the target role requirements and surface gaps before you apply.",
+    title: "Better Job Matches",
+    text: "See how well your resume fits the role requirements.",
+    icon: Zap,
   },
   {
-    title: "Keyword guidance",
-    text: "Identify missing language, repeated keywords, and recruiter-facing fit issues.",
+    title: "Find Skill Gaps",
+    text: "Identify missing skills and get suggestions to stand out.",
+    icon: ShieldCheck,
   },
   {
-    title: "Stored reuse",
-    text: "Uploaded job descriptions stay available so you can rerun ATS checks faster.",
+    title: "Tailored Recommendations",
+    text: "Get actionable insights to improve your chances.",
+    icon: Sparkles,
   },
 ];
+
+/* =========================================================
+   LEFT PANEL
+========================================================= */
 
 function InfoPanel() {
   return (
     <aside
-      className="flex h-full min-h-0 flex-col bg-white"
-      style={{
-        border: `1px solid ${colors.border}`,
-        borderRadius: "24px",
-        boxShadow: "0 16px 36px rgba(16,36,90,0.075)",
-        padding: "28px",
-      }}
+      className="
+        relative
+        flex
+        h-full
+        min-h-0
+        flex-col
+        overflow-hidden
+        rounded-[28px]
+        border
+        border-white/10
+        bg-[rgba(5,48,74,0.83)]
+        px-7
+        py-7
+        text-white
+        shadow-[0_24px_60px_rgba(3,30,47,.22)]
+        backdrop-blur-[3px]
+
+        xl:px-8
+        xl:py-8
+      "
     >
+      {/* inner wash */}
       <div
-        className="flex shrink-0 items-center justify-center"
-        style={{
-          width: "52px",
-          height: "52px",
-          borderRadius: "16px",
-          backgroundColor: colors.softBlue,
-          color: colors.dark,
-        }}
-      >
-        <Target className="h-6 w-6" />
-      </div>
+        aria-hidden="true"
+        className="
+          pointer-events-none
+          absolute
+          inset-0
+          bg-[linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,.012)_55%,rgba(2,25,40,.14))]
+        "
+      />
 
-      <p
-        className="mt-7 text-[11px] font-black uppercase tracking-[0.22em]"
-        style={{ color: colors.muted }}
-      >
-        Targeted ATS Match
-      </p>
+      {/* atmosphere */}
+      <div
+        aria-hidden="true"
+        className="
+          pointer-events-none
+          absolute
+          -bottom-[160px]
+          -left-[100px]
+          h-[360px]
+          w-[360px]
+          rounded-full
+          bg-[#082D45]/30
+          blur-[90px]
+        "
+      />
 
-      <h1
-        className="mt-3 font-black leading-tight tracking-tight"
-        style={{
-          color: colors.dark,
-          fontSize: "30px",
-        }}
-      >
-        Add job details
-      </h1>
+      <div className="relative z-10 flex h-full min-h-0 flex-col">
+        {/* icon */}
+        <div
+          className="
+            flex
+            h-[58px]
+            w-[58px]
+            shrink-0
+            items-center
+            justify-center
+            rounded-[17px]
+            border
+            border-[#E9BC50]
+            bg-[#F3BA2E]
+            text-[#103A54]
+            shadow-[0_12px_26px_rgba(188,128,14,.20)]
+          "
+        >
+          <Target className="h-[26px] w-[26px]" strokeWidth={2.1} />
+        </div>
 
-      <p
-        className="mt-4 max-w-md font-medium"
-        style={{
-          color: colors.muted,
-          fontSize: "14.5px",
-          lineHeight: "1.7",
-        }}
-      >
-        Upload or reuse a stored job description, then paste any missing role
-        details before generating the ATS comparison report.
-      </p>
+        <p
+          className="
+            mt-6
+            text-[9px]
+            font-black
+            uppercase
+            tracking-[0.28em]
+            text-[#F0C45A]
+          "
+        >
+          Job Details
+        </p>
 
-      <div className="mt-7 space-y-5">
-        {jdBullets.map((item) => (
-          <div key={item.title} className="flex gap-3">
+        <h1
+          className="
+            mt-3
+            max-w-[355px]
+            text-[34px]
+            font-semibold
+            leading-[1.02]
+            tracking-[-0.045em]
+            text-white
+
+            xl:text-[37px]
+          "
+        >
+          Match your resume
+          <br />
+          to the right
+          <br />
+          <span className="text-[#F3C247]">
+            opportunity.
+          </span>
+        </h1>
+
+        <p
+          className="
+            mt-4
+            max-w-[355px]
+            text-[12px]
+            font-medium
+            leading-[1.6]
+            text-white/76
+          "
+        >
+          Add the target job description so CareerSense can compare your
+          resume against the skills, keywords, and expectations that matter.
+        </p>
+
+        {/* benefits */}
+        <div
+          className="
+            mt-6
+            rounded-[20px]
+            border
+            border-white/30
+            bg-[#193C51]/34
+            px-4
+            backdrop-blur-[6px]
+          "
+        >
+          {jdBullets.map(({ title, text, icon: Icon }, index) => (
             <div
-              className="mt-1 flex shrink-0 items-center justify-center rounded-full border bg-white"
-              style={{
-                width: "20px",
-                height: "20px",
-                borderColor: "#BFD2DF",
-                color: colors.muted,
-              }}
+              key={title}
+              className={`
+                flex
+                items-start
+                gap-3
+                py-[14px]
+
+                ${
+                  index !== jdBullets.length - 1
+                    ? "border-b border-white/15"
+                    : ""
+                }
+              `}
             >
-              <CheckCircle2 className="h-3.5 w-3.5" />
-            </div>
-
-            <div>
-              <h2
-                className="font-black"
-                style={{
-                  color: colors.dark,
-                  fontSize: "15.5px",
-                }}
+              <div
+                className="
+                  flex
+                  h-[40px]
+                  w-[40px]
+                  shrink-0
+                  items-center
+                  justify-center
+                  rounded-full
+                  bg-[#0E6C91]/90
+                  text-[#F4BF37]
+                "
               >
-                {item.title}
-              </h2>
+                <Icon className="h-[18px] w-[18px]" strokeWidth={2} />
+              </div>
 
-              <p
-                className="mt-1.5 max-w-md font-medium"
-                style={{
-                  color: colors.muted,
-                  fontSize: "13.5px",
-                  lineHeight: "1.65",
-                }}
-              >
-                {item.text}
-              </p>
+              <div className="min-w-0">
+                <h2 className="text-[11px] font-extrabold text-white">
+                  {title}
+                </h2>
+
+                <p
+                  className="
+                    mt-1
+                    max-w-[270px]
+                    text-[9px]
+                    font-medium
+                    leading-[1.45]
+                    text-white/58
+                  "
+                >
+                  {text}
+                </p>
+              </div>
             </div>
+          ))}
+        </div>
+
+        {/* handwritten note */}
+        <div className="mt-auto hidden pt-5 lg:block">
+          <div className="ml-auto w-fit rotate-[-5deg] text-right">
+            <p
+              className="
+                font-serif
+                text-[13px]
+                italic
+                leading-[1.2]
+                text-white/62
+              "
+            >
+              Same resume.
+              <br />
+              Bigger opportunities.
+            </p>
+
+            <div className="ml-auto mt-2 h-px w-[74px] bg-[#DDA32A]" />
           </div>
-        ))}
-      </div>
-
-      <div
-        className="mt-auto shrink-0"
-        style={{
-          border: `1px solid ${colors.border}`,
-          borderRadius: "18px",
-          backgroundColor: "rgba(246,241,234,0.78)",
-          padding: "15px 16px",
-        }}
-      >
-        <div className="flex gap-3">
-          <ShieldCheck
-            className="mt-0.5 h-4 w-4 shrink-0"
-            style={{ color: colors.dark }}
-          />
-
-          <p
-            className="font-medium"
-            style={{
-              color: colors.dark,
-              fontSize: "12.5px",
-              lineHeight: "1.6",
-            }}
-          >
-            Job description text is only used to compare this resume against the
-            target role and generate your ATS + JD report.
-          </p>
         </div>
       </div>
     </aside>
   );
 }
+
+/* =========================================================
+   JOB DESCRIPTION FILE UPLOAD
+========================================================= */
 
 function UploadJobFileRow({
   fileName,
@@ -181,85 +287,267 @@ function UploadJobFileRow({
 }) {
   const inputRef = useRef(null);
 
+  const handleDrop = (event) => {
+    event.preventDefault();
+
+    if (disabled) return;
+
+    onChooseFile(event.dataTransfer.files?.[0] || null);
+  };
+
   return (
-    <div
-      className="shrink-0"
-      style={{
-        border: "2px dashed #CFE0EC",
-        borderRadius: "20px",
-        backgroundColor: "rgba(246,241,234,0.42)",
-        padding: "15px",
-      }}
-    >
+    <div>
       <input
         ref={inputRef}
         type="file"
         accept=".pdf,.doc,.docx,.txt,.md"
         className="hidden"
-        onChange={(event) => onChooseFile(event.target.files?.[0] || null)}
+        onChange={(event) =>
+          onChooseFile(event.target.files?.[0] || null)
+        }
       />
 
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-3">
-          <div
-            className="flex shrink-0 items-center justify-center bg-white"
-            style={{
-              width: "48px",
-              height: "48px",
-              borderRadius: "15px",
-              boxShadow: "0 10px 22px rgba(16,36,90,0.06)",
-              color: colors.dark,
-            }}
-          >
-            <FileText className="h-5 w-5" />
-          </div>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(event) => event.preventDefault()}
+        onDrop={handleDrop}
+        className="
+          group
+          flex
+          h-[142px]
+          w-full
+          flex-col
+          items-center
+          justify-center
+          rounded-[16px]
+          border-[1.5px]
+          border-dashed
+          border-[#ABC8D8]
+          bg-[#FEFEFD]
+          px-5
+          text-center
+          transition-all
+          duration-200
 
-          <div className="min-w-0">
-            <h3
-              className="font-black"
-              style={{
-                color: colors.dark,
-                fontSize: "16px",
-              }}
+          hover:border-[#D0A044]
+          hover:shadow-[0_10px_24px_rgba(7,47,73,.06)]
+
+          disabled:cursor-not-allowed
+          disabled:opacity-60
+        "
+      >
+        <span
+          className="
+            grid
+            h-[42px]
+            w-[42px]
+            place-items-center
+            rounded-full
+            bg-[#EEF5F8]
+            text-[#083650]
+            transition-transform
+            duration-200
+
+            group-hover:-translate-y-0.5
+          "
+        >
+          <UploadCloud className="h-5 w-5" />
+        </span>
+
+        <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+          <span className="text-[12px] font-black text-[#123A54]">
+            {fileName || "Drag & drop a job description here"}
+          </span>
+
+          {!fileName ? (
+            <span
+              className="
+                rounded-full
+                bg-[#FFF2D3]
+                px-2.5
+                py-1
+                text-[6px]
+                font-black
+                uppercase
+                tracking-[0.12em]
+                text-[#A66B0D]
+              "
             >
-              Upload a job description file
-            </h3>
-
-            <p
-              className="mt-1 font-medium"
-              style={{
-                color: colors.muted,
-                fontSize: "12.5px",
-                lineHeight: "1.5",
-              }}
-            >
-              Supports PDF, DOC, DOCX, TXT, and Markdown.
-            </p>
-
-            {fileName ? (
-              <p
-                className="mt-1 truncate text-xs font-black"
-                style={{ color: colors.navy }}
-              >
-                Selected: {fileName}
-              </p>
-            ) : null}
-          </div>
+              Optional File
+            </span>
+          ) : null}
         </div>
 
-        <Button
-          variant="outline"
-          onClick={() => inputRef.current?.click()}
-          disabled={disabled}
-          className="shrink-0 rounded-2xl border-[#D7E2EA] px-4 py-2 text-xs font-black"
+        <span className="mt-1 text-[8px] font-medium text-[#7893A2]">
+          {fileName
+            ? "Job description selected and ready to review."
+            : "PDF, DOC, DOCX, TXT, or Markdown"}
+        </span>
+
+        <span
+          className="
+            mt-2
+            inline-flex
+            h-9
+            min-w-[215px]
+            items-center
+            justify-center
+            gap-2
+            rounded-[9px]
+            bg-[#083650]
+            px-5
+            text-[9.5px]
+            font-black
+            text-white
+            shadow-[0_8px_18px_rgba(8,54,80,.15)]
+          "
         >
-          <UploadCloud className="mr-2 h-4 w-4" />
-          Upload file
-        </Button>
-      </div>
+          <UploadCloud className="h-[13px] w-[13px]" />
+
+          {disabled
+            ? "Please wait..."
+            : fileName
+            ? "Choose Another File"
+            : "Choose File"}
+        </span>
+      </button>
     </div>
   );
 }
+
+/* =========================================================
+   MAIN JOB DESCRIPTION CARD
+========================================================= */
+
+function ExtractedJobDescriptionCard({
+  value,
+  onChange,
+  fileName,
+  onChooseFile,
+  disabled,
+}) {
+  return (
+    <section
+      className="
+        flex
+        h-full
+        min-h-0
+        flex-col
+        overflow-hidden
+        rounded-[19px]
+        border
+        border-[#D8E1E6]
+        bg-[#FBF7F0]
+        p-3
+        shadow-[0_12px_28px_rgba(18,51,73,.045)]
+      "
+    >
+      {/* header */}
+      <div className="flex shrink-0 items-start justify-between gap-4">
+        <div>
+          <h3
+            className="
+              text-[13px]
+              font-black
+              tracking-[-0.02em]
+              text-[#123A54]
+            "
+          >
+            Job Description
+          </h3>
+
+          <p className="mt-1 text-[8px] font-medium text-[#718B9C]">
+            Upload, paste, or review the role details before analysis.
+          </p>
+        </div>
+
+        <span
+          className="
+            hidden
+            rounded-full
+            bg-[#FFF2D3]
+            px-3
+            py-1.5
+            text-[6px]
+            font-black
+            uppercase
+            tracking-[0.12em]
+            text-[#A66B0D]
+
+            sm:block
+          "
+        >
+          Review Before Analysis
+        </span>
+      </div>
+
+      {/* upload */}
+      <div className="mt-3">
+        <UploadJobFileRow
+          fileName={fileName}
+          onChooseFile={onChooseFile}
+          disabled={disabled}
+        />
+      </div>
+
+      {/* textarea */}
+      <div className="relative mt-2.5 min-h-0 flex-1">
+        <textarea
+          value={value}
+          onChange={onChange}
+          maxLength={5000}
+          placeholder="Or paste the job description here (responsibilities, requirements, company details, and role title)..."
+          className="
+            h-full
+            min-h-[130px]
+            w-full
+            resize-none
+            overflow-y-auto
+            rounded-[15px]
+            border
+            border-[#D5E0E6]
+            bg-white
+            px-4
+            py-3
+            pb-8
+            text-[10.5px]
+            font-medium
+            leading-[1.6]
+            text-[#36586D]
+            outline-none
+            transition
+
+            placeholder:text-[#9AAEBB]
+
+            focus:border-[#C58A25]
+            focus:ring-2
+            focus:ring-[#EFCB83]/20
+          "
+        />
+
+        <span
+          className="
+            pointer-events-none
+            absolute
+            bottom-3
+            right-4
+            text-[8px]
+            font-medium
+            text-[#708A9B]
+          "
+        >
+          {value.length}/5000
+        </span>
+      </div>
+    </section>
+  );
+}
+
+/* =========================================================
+   SAVED JOB DESCRIPTIONS
+========================================================= */
 
 function StoredJobDescriptionsCard({
   items,
@@ -270,46 +558,78 @@ function StoredJobDescriptionsCard({
 }) {
   return (
     <section
-      className="flex min-h-0 flex-col"
-      style={{
-        border: `1px solid ${colors.border}`,
-        borderRadius: "20px",
-        padding: "16px",
-      }}
+      className="
+        flex
+        h-full
+        min-h-0
+        flex-col
+        overflow-hidden
+        rounded-[19px]
+        border
+        border-[#D8E1E6]
+        bg-[#F8F1E5]
+        px-4
+        py-4
+        shadow-[0_12px_28px_rgba(18,51,73,.045)]
+      "
     >
-      <div className="flex shrink-0 items-start gap-3">
-        <FolderOpen
-          className="mt-1 h-4 w-4 shrink-0"
-          style={{ color: colors.muted }}
-        />
-
-        <div>
-          <h3
-            className="font-black"
-            style={{
-              color: colors.dark,
-              fontSize: "15.5px",
-            }}
+      {/* header */}
+      <div className="flex shrink-0 items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div
+            className="
+              flex
+              h-[48px]
+              w-[48px]
+              shrink-0
+              items-center
+              justify-center
+              rounded-[14px]
+              bg-[#FFF0CC]
+              text-[#C88615]
+            "
           >
-            Stored Job Descriptions
-          </h3>
+            <FolderOpen className="h-[21px] w-[21px]" />
+          </div>
 
-          <p
-            className="mt-1 font-medium"
-            style={{
-              color: colors.muted,
-              fontSize: "12.5px",
-              lineHeight: "1.45",
-            }}
-          >
-            Choose a saved JD instead of uploading again.
-          </p>
+          <div>
+            <h3 className="text-[14px] font-black text-[#123A54]">
+              Your Saved Job Descriptions
+            </h3>
+
+            <p className="mt-[2px] text-[9px] font-medium text-[#718B9C]">
+              Use a previously uploaded job description.
+            </p>
+          </div>
         </div>
+
+        {items.length > 0 ? (
+          <span
+            className="
+              rounded-full
+              bg-[#EAF2F6]
+              px-3
+              py-2
+              text-[8px]
+              font-bold
+              text-[#607F92]
+            "
+          >
+            {items.length} saved
+          </span>
+        ) : null}
       </div>
 
+      {/* list */}
       <div
-        className="mt-4 min-h-0 space-y-2 overflow-y-auto pr-1"
-        style={{ maxHeight: "190px" }}
+        className="
+          mt-4
+          min-h-0
+          flex-1
+          space-y-2.5
+          overflow-y-auto
+          pr-1
+        "
       >
         {items.length > 0 ? (
           items.map((item) => {
@@ -319,64 +639,119 @@ function StoredJobDescriptionsCard({
             return (
               <div
                 key={item.id}
-                className="flex items-center justify-between gap-4"
-                style={{
-                  border: `1px solid ${isSelected ? "#9EC1D8" : colors.border}`,
-                  borderRadius: "14px",
-                  backgroundColor: isSelected
-                    ? "#F0F7FC"
-                    : "rgba(255,255,255,0.78)",
-                  padding: "10px 12px",
-                  boxShadow: isSelected
-                    ? "0 8px 18px rgba(16,36,90,0.06)"
-                    : "none",
-                }}
-              >
-                <div className="min-w-0">
-                  <p
-                    className="truncate font-black"
-                    style={{
-                      color: colors.dark,
-                      fontSize: "14px",
-                    }}
-                  >
-                    {item.title}
-                  </p>
+                className={`
+                  flex
+                  min-h-[72px]
+                  items-center
+                  justify-between
+                  gap-4
+                  rounded-[15px]
+                  border
+                  px-4
+                  py-3
+                  shadow-[0_4px_10px_rgba(16,58,84,.025)]
 
+                  ${
+                    isSelected
+                      ? "border-[#9DBFD0] bg-[#F2F8FB]"
+                      : "border-[#DCE4E7] bg-white"
+                  }
+                `}
+              >
+                <div className="flex min-w-0 items-center gap-3.5">
                   <div
-                    className="mt-1 flex items-center gap-1.5 font-medium"
-                    style={{
-                      color: colors.muted,
-                      fontSize: "11.5px",
-                    }}
+                    className="
+                      flex
+                      h-[48px]
+                      w-[48px]
+                      shrink-0
+                      items-center
+                      justify-center
+                      rounded-[13px]
+                      bg-[#EEF3F6]
+                      text-[#173B54]
+                    "
                   >
-                    <Clock3 className="h-3 w-3" />
-                    <span>{item.label}</span>
+                    <FileText className="h-[20px] w-[20px]" />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p
+                      className="
+                        truncate
+                        text-[11px]
+                        font-black
+                        text-[#173B54]
+                      "
+                    >
+                      {item.title}
+                    </p>
+
+                    <div
+                      className="
+                        mt-[5px]
+                        flex
+                        items-center
+                        gap-1.5
+                        text-[8.5px]
+                        text-[#79909F]
+                      "
+                    >
+                      <Clock3 className="h-[10px] w-[10px]" />
+
+                      <span>{item.label}</span>
+                    </div>
                   </div>
                 </div>
 
                 <Button
                   onClick={() => onUse(item.id)}
                   disabled={isLoading}
-                  className="rounded-xl px-3.5 py-2 text-xs font-black"
+                  className="
+                    min-h-[46px]
+                    min-w-[88px]
+                    shrink-0
+                    rounded-[13px]
+                    !bg-[#083650]
+                    px-5
+                    py-3
+                    text-[11px]
+                    font-black
+                    text-white
+                    shadow-[0_8px_18px_rgba(8,54,80,.14)]
+
+                    hover:!bg-[#124A68]
+                  "
                 >
-                  {isLoading ? "Opening..." : isSelected ? "Selected" : "Use"}
+                  {isLoading
+                    ? "Opening..."
+                    : isSelected
+                    ? "Selected"
+                    : "Use"}
                 </Button>
               </div>
             );
           })
         ) : (
           <div
-            className="text-center font-medium"
-            style={{
-              border: "2px dashed #CFE0EC",
-              borderRadius: "16px",
-              backgroundColor: "rgba(255,255,255,0.72)",
-              color: colors.muted,
-              padding: "20px 16px",
-              fontSize: "13px",
-              lineHeight: "1.6",
-            }}
+            className="
+              flex
+              h-full
+              min-h-[160px]
+              items-center
+              justify-center
+              rounded-[16px]
+              border
+              border-dashed
+              border-[#CBDCE5]
+              bg-white
+              px-5
+              text-center
+              text-[9px]
+              font-medium
+              leading-[1.5]
+              text-[#718B9C]
+            "
           >
             {emptyText}
           </div>
@@ -386,85 +761,81 @@ function StoredJobDescriptionsCard({
   );
 }
 
-function ExtractedJobDescriptionCard({ value, onChange }) {
-  return (
-    <section
-      className="flex min-h-0 flex-1 flex-col"
-      style={{
-        border: `1px solid ${colors.border}`,
-        borderRadius: "20px",
-        padding: "16px",
-      }}
-    >
-      <div className="shrink-0">
-        <h3
-          className="font-black"
-          style={{
-            color: colors.dark,
-            fontSize: "15.5px",
-          }}
-        >
-          JD Extracted
-        </h3>
-
-        <p
-          className="mt-1 font-medium"
-          style={{
-            color: colors.muted,
-            fontSize: "12.5px",
-            lineHeight: "1.45",
-          }}
-        >
-          Review or edit the extracted job description before running the ATS
-          comparison.
-        </p>
-      </div>
-
-      <textarea
-        value={value}
-        onChange={onChange}
-        placeholder="Paste responsibilities, requirements, company details, and role title here..."
-        className="mt-4 min-h-0 flex-1 resize-none overflow-y-auto rounded-2xl border bg-white px-4 py-4 text-sm leading-7 text-slate-700 outline-none transition focus:border-[#AFC8DB]"
-        style={{
-          borderColor: colors.border,
-          boxShadow: "0 10px 28px rgba(16,36,90,0.04)",
-        }}
-      />
-    </section>
-  );
-}
+/* =========================================================
+   PAGE
+========================================================= */
 
 function ATSJobDetailsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const resumeIdFromQuery = searchParams.get("resumeId");
-  const currentResume = useResumeStore((state) => state.currentResume);
-  const setCurrentResume = useResumeStore((state) => state.setCurrentResume);
+  const requestedReportLevel = searchParams.get("reportLevel");
+
+  const currentResume = useResumeStore(
+    (state) => state.currentResume
+  );
+
+  const setCurrentResume = useResumeStore(
+    (state) => state.setCurrentResume
+  );
 
   const [jobDescription, setJobDescription] = useState("");
-  const [jobDescriptionFileName, setJobDescriptionFileName] = useState("");
-  const [selectedStoredJobDescriptionId, setSelectedStoredJobDescriptionId] =
-    useState("");
-  const [storedJobDescriptions, setStoredJobDescriptions] = useState([]);
+
+  const [
+    jobDescriptionFileName,
+    setJobDescriptionFileName,
+  ] = useState("");
+
+  const [
+    selectedStoredJobDescriptionId,
+    setSelectedStoredJobDescriptionId,
+  ] = useState("");
+
+  const [
+    storedJobDescriptions,
+    setStoredJobDescriptions,
+  ] = useState([]);
+
   const [pageStatus, setPageStatus] = useState("loading");
   const [pageError, setPageError] = useState("");
-  const [jobDescriptionStatus, setJobDescriptionStatus] = useState({
+
+  const [
+    jobDescriptionStatus,
+    setJobDescriptionStatus,
+  ] = useState({
     isUploading: false,
     error: "",
     success: "",
   });
+
   const [resumeStatus, setResumeStatus] = useState({
     isLoading: false,
     error: "",
   });
+
   const [analysisState, setAnalysisState] = useState({
     status: "idle",
     error: "",
   });
-  const [storedJobLoadingId, setStoredJobLoadingId] = useState("");
 
-  const activeResumeId = currentResume?.resume_id || resumeIdFromQuery || "";
+  const [reportLevel, setReportLevel] = useState(
+    requestedReportLevel === REPORT_LEVELS.DETAILED
+      ? REPORT_LEVELS.DETAILED
+      : DEFAULT_REPORT_LEVEL
+  );
+
+  const [
+    storedJobLoadingId,
+    setStoredJobLoadingId,
+  ] = useState("");
+
+  const activeResumeId =
+    currentResume?.resume_id || resumeIdFromQuery || "";
+
+  /* =======================================================
+     INITIAL LOAD
+  ======================================================= */
 
   useEffect(() => {
     let active = true;
@@ -478,18 +849,21 @@ function ATSJobDetailsPage() {
 
         if (
           resumeIdFromQuery &&
-          (!currentResume || currentResume.resume_id !== resumeIdFromQuery)
+          (!currentResume ||
+            currentResume.resume_id !== resumeIdFromQuery)
         ) {
-          setResumeStatus({ isLoading: true, error: "" });
+          setResumeStatus({
+            isLoading: true,
+            error: "",
+          });
+
           requests.push(getResume(resumeIdFromQuery));
         }
 
         const [jobDescriptionsResponse, resumeResponse] =
           await Promise.all(requests);
 
-        if (!active) {
-          return;
-        }
+        if (!active) return;
 
         setStoredJobDescriptions(jobDescriptionsResponse.data || []);
 
@@ -497,12 +871,14 @@ function ATSJobDetailsPage() {
           setCurrentResume(resumeResponse.data);
         }
 
-        setResumeStatus({ isLoading: false, error: "" });
+        setResumeStatus({
+          isLoading: false,
+          error: "",
+        });
+
         setPageStatus("success");
       } catch (error) {
-        if (!active) {
-          return;
-        }
+        if (!active) return;
 
         setPageError(
           error?.response?.data?.detail ||
@@ -527,19 +903,45 @@ function ATSJobDetailsPage() {
     };
   }, [currentResume, resumeIdFromQuery, setCurrentResume]);
 
+  /* =======================================================
+     REDIRECT IF NO RESUME
+  ======================================================= */
+
   useEffect(() => {
     if (!resumeIdFromQuery && !currentResume?.resume_id) {
-      navigate("/check-ats/resume-jd", { replace: true });
+      navigate("/check-ats/resume-jd", {
+        replace: true,
+      });
     }
   }, [currentResume?.resume_id, navigate, resumeIdFromQuery]);
+
+  /* =======================================================
+     STORED JD ITEMS
+  ======================================================= */
 
   const storedItems = useMemo(
     () =>
       storedJobDescriptions.map((item) => ({
-        id: item.job_description_id,
-        title: item.title || item.file_name || "Stored job description",
+        id: item.job_description_id || item.id,
+
+        title:
+          item.title ||
+          item.file_name ||
+          item.name ||
+          "Stored job description",
+
         createdAt: item.created_at,
-        label: `Saved ${new Date(item.created_at).toLocaleDateString()}`,
+
+        label: item.created_at
+          ? `Saved on ${new Date(item.created_at).toLocaleDateString(
+              undefined,
+              {
+                month: "short",
+                day: "2-digit",
+                year: "numeric",
+              }
+            )}`
+          : "Saved job description",
       })),
     [storedJobDescriptions]
   );
@@ -547,16 +949,19 @@ function ATSJobDetailsPage() {
   const refreshStoredJobDescriptions = async () => {
     try {
       const response = await getJobDescriptions();
+
       setStoredJobDescriptions(response.data || []);
     } catch {
-      // Keep current list if refresh fails.
+      // Keep existing data if refresh fails.
     }
   };
 
+  /* =======================================================
+     UPLOAD JD FILE
+  ======================================================= */
+
   const handleJobDescriptionFileSelected = async (file) => {
-    if (!file) {
-      return;
-    }
+    if (!file) return;
 
     const validationError = validateJobDescriptionFile(file);
 
@@ -566,6 +971,7 @@ function ATSJobDetailsPage() {
         error: validationError,
         success: "",
       });
+
       return;
     }
 
@@ -576,13 +982,32 @@ function ATSJobDetailsPage() {
     });
 
     const formData = new FormData();
+
     formData.append("file", file);
 
     try {
       const response = await uploadJobDescriptionFile(formData);
 
-      setJobDescription(response.data.raw_text || "");
-      setJobDescriptionFileName(response.data.file_name || file.name);
+      const storedText =
+        response.data.raw_text ||
+        response.data.text ||
+        response.data.content ||
+        response.data.job_description ||
+        response.data.description ||
+        "";
+
+      if (!storedText.trim()) {
+        throw new Error(
+          "This job description does not contain readable text."
+        );
+      }
+
+      setJobDescription(storedText);
+
+      setJobDescriptionFileName(
+        response.data.file_name || file.name
+      );
+
       setSelectedStoredJobDescriptionId(
         response.data.job_description_id || ""
       );
@@ -591,7 +1016,8 @@ function ATSJobDetailsPage() {
         isUploading: false,
         error: "",
         success:
-          response.data.message || "Job description uploaded successfully.",
+          response.data.message ||
+          "Job description uploaded successfully.",
       });
 
       refreshStoredJobDescriptions();
@@ -600,13 +1026,20 @@ function ATSJobDetailsPage() {
         isUploading: false,
         error:
           error?.response?.data?.detail ||
+          error?.message ||
           "Job description upload failed. Please try another file.",
         success: "",
       });
     }
   };
 
-  const handleUseStoredJobDescription = async (jobDescriptionId) => {
+  /* =======================================================
+     USE SAVED JD
+  ======================================================= */
+
+  const handleUseStoredJobDescription = async (
+    jobDescriptionId
+  ) => {
     setStoredJobLoadingId(jobDescriptionId);
 
     setJobDescriptionStatus({
@@ -618,16 +1051,42 @@ function ATSJobDetailsPage() {
     try {
       const response = await getJobDescription(jobDescriptionId);
 
-      setJobDescription(response.data.raw_text || "");
+      const storedText =
+        response.data.raw_text ||
+        response.data.text ||
+        response.data.content ||
+        response.data.job_description ||
+        response.data.description ||
+        "";
+
+      if (!storedText.trim()) {
+        throw new Error(
+          "This saved job description does not contain readable text."
+        );
+      }
+
+      setJobDescription(storedText);
+
       setJobDescriptionFileName(
-        response.data.title || "Stored job description"
+        response.data.file_name ||
+          response.data.name ||
+          response.data.title ||
+          "Stored job description"
       );
+
       setSelectedStoredJobDescriptionId(jobDescriptionId);
+
+      setJobDescriptionStatus({
+        isUploading: false,
+        error: "",
+        success: "Saved job description selected.",
+      });
     } catch (error) {
       setJobDescriptionStatus({
         isUploading: false,
         error:
           error?.response?.data?.detail ||
+          error?.message ||
           "Unable to load the selected stored job description.",
         success: "",
       });
@@ -636,127 +1095,282 @@ function ATSJobDetailsPage() {
     }
   };
 
+  /* =======================================================
+     GENERATE REPORT
+  ======================================================= */
+
   const handleGenerateReport = async () => {
     if (analysisState.status === "loading") return;
+
     if (!activeResumeId) {
       setAnalysisState({
         status: "error",
-        error: "Select a resume before running the ATS comparison.",
+        error:
+          "Select a resume before running the ATS comparison.",
       });
+
       return;
     }
 
     if (!jobDescription.trim()) {
       setAnalysisState({
         status: "error",
-        error: "Add a job description before running the ATS comparison.",
+        error:
+          "Add a job description before running the ATS comparison.",
       });
+
       return;
     }
 
-    setAnalysisState({ status: "loading", error: "" });
+    setAnalysisState({
+      status: "loading",
+      error: "",
+    });
 
     try {
-      const response = await generateAnalysisReport({
-        resume_id: activeResumeId,
-        jd_text: jobDescription,
-      });
+      if (reportLevel === REPORT_LEVELS.BASIC) {
+        const basicResponse = await generateBasicAnalysisReport({
+          resume_id: activeResumeId,
+          jd_text: jobDescription,
+        });
 
-      navigate(`/reports/analysis/${activeResumeId}`);
+        navigate(`/reports/basic/${activeResumeId}`, {
+          state: { basicReport: basicResponse.data },
+        });
+      } else {
+        await generateAnalysisReport({
+          resume_id: activeResumeId,
+          jd_text: jobDescription,
+        });
+
+        navigate(`/reports/analysis/${activeResumeId}`);
+      }
     } catch (error) {
       setAnalysisState({
         status: "error",
         error:
           error?.response?.data?.detail ||
+          error?.response?.data?.message ||
+          error?.message ||
           "ATS analysis failed. Please try again in a moment.",
       });
     }
   };
 
+  /* =======================================================
+     UI
+  ======================================================= */
+
+  const headerNotice = pageError
+    ? { message: pageError, variant: "error" }
+    : resumeStatus.error
+      ? { message: resumeStatus.error, variant: "error" }
+      : jobDescriptionStatus.error
+        ? { message: jobDescriptionStatus.error, variant: "error" }
+        : analysisState.error
+          ? { message: analysisState.error, variant: "error" }
+          : jobDescriptionStatus.isUploading
+            ? { message: "Extracting text from the uploaded job description...", variant: "info" }
+            : storedJobLoadingId
+              ? { message: "Opening stored job description...", variant: "info" }
+              : resumeStatus.isLoading
+                ? { message: "Loading selected resume...", variant: "info" }
+                : pageStatus === "loading"
+                  ? { message: "Loading saved job descriptions...", variant: "info" }
+                  : jobDescriptionStatus.success
+                    ? { message: jobDescriptionStatus.success, variant: "success" }
+                    : null;
+
   return (
     <main
-      className="relative isolate w-full overflow-y-auto"
+      className="
+        brand-type
+        relative
+        isolate
+        w-full
+        overflow-hidden
+        bg-[#F8F3EA]
+
+        lg:h-[calc(100dvh-72px)]
+        lg:min-h-0
+      "
       style={{
         minHeight: "calc(100vh - 72px)",
-        backgroundColor: colors.cream,
       }}
     >
-      <AnimatedHeroBackground />
-
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "linear-gradient(90deg, rgba(231,240,248,0.22) 0%, rgba(246,241,234,0.58) 48%, rgba(246,241,234,0.94) 100%)",
-        }}
+      <ReportGenerationLoader
+        open={analysisState.status === "loading"}
+        analysisType="resume_jd"
+        reportLevel={reportLevel}
       />
 
+      {/* ===================================================
+          BACKGROUND
+      =================================================== */}
+
+      <img
+        src={resumeUploadBackground}
+        alt=""
+        aria-hidden="true"
+        className="
+          pointer-events-none
+          absolute
+          inset-0
+          h-full
+          w-full
+          object-cover
+          object-center
+        "
+      />
+
+      <div
+        aria-hidden="true"
+        className="
+          pointer-events-none
+          absolute
+          inset-0
+          bg-[rgba(251,247,239,.04)]
+        "
+      />
+
+      {/* ===================================================
+          PAGE GRID
+      =================================================== */}
+
       <section
-        className="relative z-10 mx-auto grid items-center gap-5 px-5 py-8 lg:grid-cols-2 lg:px-7"
-        style={{ maxWidth: "1240px", minHeight: "calc(100vh - 120px)" }}
+        className="
+          relative
+          z-10
+          mx-auto
+          grid
+          h-full
+          w-full
+          max-w-[1920px]
+          gap-5
+          px-5
+          py-3
+
+          lg:grid-cols-[430px_minmax(0,1fr)]
+          lg:px-8
+
+          xl:grid-cols-[450px_minmax(0,1fr)]
+          xl:px-12
+
+          2xl:grid-cols-[470px_minmax(0,1fr)]
+          2xl:px-[58px]
+        "
       >
+        {/* LEFT */}
         <InfoPanel />
 
+        {/* =================================================
+            RIGHT
+        ================================================= */}
+
         <div
-          className="flex h-full min-h-0 flex-col bg-white"
-          style={{
-            border: `1px solid ${colors.border}`,
-            borderRadius: "24px",
-            boxShadow: "0 16px 36px rgba(16,36,90,0.075)",
-            padding: "28px",
-          }}
+          className="
+            relative
+            flex
+            h-full
+            min-h-0
+            flex-col
+            overflow-visible
+            py-1
+          "
         >
-          <div className="flex shrink-0 items-start justify-between gap-4">
+          {/* HEADER */}
+          <div
+            className="
+              flex
+              shrink-0
+              items-start
+              justify-between
+              gap-5
+              px-1
+            "
+          >
             <div className="min-w-0">
-              <h2
-                className="font-black tracking-tight"
-                style={{
-                  color: colors.dark,
-                  fontSize: "26px",
-                }}
+              <p
+                className="
+                  text-[9px]
+                  font-black
+                  uppercase
+                  tracking-[0.27em]
+                  text-[#B77A16]
+                "
               >
-                Job Details
+                Step 3 of 3
+              </p>
+
+              <h2
+                className="
+                  mt-1
+                  text-[34px]
+                  font-semibold
+                  leading-none
+                  tracking-[-0.045em]
+                  text-[#123A54]
+
+                  xl:text-[37px]
+                "
+              >
+                Add Job Details
               </h2>
 
               <p
-                className="mt-1.5 font-medium"
-                style={{
-                  color: colors.muted,
-                  fontSize: "14px",
-                  lineHeight: "1.55",
-                }}
+                className="
+                  mt-2
+                  text-[10.5px]
+                  font-medium
+                  text-[#567A90]
+                "
               >
-                Upload the target job description or paste the full posting
-                below.
+                Add the job description so CareerSense can measure match
+                quality, keywords, and role alignment.
               </p>
             </div>
 
-            {currentResume?.file_name ? (
-              <div
-                className="hidden max-w-[230px] shrink-0 rounded-2xl border px-4 py-3 text-right md:block"
-                style={{
-                  borderColor: colors.border,
-                  backgroundColor: "rgba(231,240,248,0.42)",
-                }}
-              >
-                <p
-                  className="text-[10px] font-black uppercase tracking-[0.16em]"
-                  style={{ color: colors.muted }}
-                >
-                  Selected Resume
-                </p>
-                <p
-                  className="mt-1 truncate text-sm font-black"
-                  style={{ color: colors.dark }}
-                >
-                  {currentResume.file_name}
-                </p>
-              </div>
-            ) : null}
+            <div className="flex min-w-0 max-w-[610px] flex-1 items-start justify-end gap-2">
+              {headerNotice ? (
+                <div className="min-w-0 max-w-[360px] flex-1 pt-1" role="status" aria-live="polite">
+                  <Toast message={headerNotice.message} variant={headerNotice.variant} compact />
+                </div>
+              ) : null}
+
+              {currentResume?.file_name ? (
+                <div className="hidden max-w-[245px] shrink-0 items-center gap-3 rounded-[12px] border border-[#D9E3E8] bg-white px-3 py-2 shadow-[0_8px_20px_rgba(18,51,73,.05)] md:flex">
+                  <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] bg-[#FFF2D7] text-[#C58413]">
+                    <FileText className="h-[16px] w-[16px]" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[6.5px] font-black uppercase tracking-[0.15em] text-[#8297A5]">Selected Resume</p>
+                    <p className="mt-[2px] truncate text-[9px] font-black text-[#173B54]">{currentResume.file_name}</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
 
-          <div className="mt-5 shrink-0">
-            <UploadJobFileRow
+          {/* =================================================
+              MAIN CONTENT ROW
+          ================================================= */}
+
+          <div
+            className="
+              mt-3
+              grid
+              min-h-0
+              flex-1
+              gap-3
+
+              lg:grid-cols-[minmax(0,1.06fr)_minmax(360px,.94fr)]
+            "
+          >
+            <ExtractedJobDescriptionCard
+              value={jobDescription}
+              onChange={(event) =>
+                setJobDescription(event.target.value)
+              }
               fileName={jobDescriptionFileName}
               onChooseFile={handleJobDescriptionFileSelected}
               disabled={
@@ -764,60 +1378,69 @@ function ATSJobDetailsPage() {
                 analysisState.status === "loading"
               }
             />
-          </div>
 
-          <div className="mt-5 flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
             <StoredJobDescriptionsCard
               items={storedItems}
               selectedId={selectedStoredJobDescriptionId}
               onUse={handleUseStoredJobDescription}
               loadingId={storedJobLoadingId}
-              emptyText="No stored job descriptions yet. Upload one once and it will appear here automatically."
-            />
-
-            <ExtractedJobDescriptionCard
-              value={jobDescription}
-              onChange={(event) => setJobDescription(event.target.value)}
+              emptyText="No saved job descriptions yet. Upload one and it will appear here automatically."
             />
           </div>
 
-          <div className="mt-3 min-h-[34px] shrink-0 space-y-1">
-            {pageStatus === "loading" ? (
-              <Loader label="Loading stored job descriptions..." />
-            ) : null}
+          {/* =================================================
+              REPORT DEPTH
+          ================================================= */}
 
-            {resumeStatus.isLoading ? (
-              <Loader label="Loading selected resume..." />
-            ) : null}
-
-            {storedJobLoadingId ? (
-              <Loader label="Opening stored job description..." />
-            ) : null}
-
-            {jobDescriptionStatus.isUploading ? (
-              <Loader label="Extracting text from the uploaded job description..." />
-            ) : null}
-
-            {pageError ? <Toast message={pageError} variant="error" /> : null}
-
-            {resumeStatus.error ? (
-              <Toast message={resumeStatus.error} variant="error" />
-            ) : null}
-
-            {jobDescriptionStatus.error ? (
-              <Toast message={jobDescriptionStatus.error} variant="error" />
-            ) : null}
-
-            {jobDescriptionStatus.success ? (
-              <Toast message={jobDescriptionStatus.success} variant="success" />
-            ) : null}
-
-            {analysisState.error ? (
-              <Toast message={analysisState.error} variant="error" />
-            ) : null}
+          <div className="mt-3 shrink-0">
+            <ReportTypeSelector
+              value={reportLevel}
+              onChange={setReportLevel}
+              disabled={
+                jobDescriptionStatus.isUploading ||
+                analysisState.status === "loading"
+              }
+              compact
+              showResumeJdTokenEstimate
+            />
           </div>
 
-          <div className="mt-auto flex shrink-0 justify-end pt-3">
+          {/* =================================================
+              ACTION BAR
+          ================================================= */}
+
+          <div
+            className="
+              mt-2
+              flex
+              shrink-0
+              items-center
+              justify-between
+              gap-4
+              pb-1
+            "
+          >
+            <div className="flex items-center gap-2">
+              <ShieldCheck
+                className="
+                  h-[14px]
+                  w-[14px]
+                  shrink-0
+                  text-[#C78818]
+                "
+              />
+
+              <p
+                className="
+                  text-[8px]
+                  font-semibold
+                  text-[#738C9D]
+                "
+              >
+                Your information stays private in your CareerSense workspace.
+              </p>
+            </div>
+
             <Button
               onClick={handleGenerateReport}
               disabled={
@@ -826,13 +1449,46 @@ function ATSJobDetailsPage() {
                 !activeResumeId ||
                 !jobDescription.trim()
               }
-              className="min-w-[210px] rounded-2xl px-5 py-2.5 text-sm font-black shadow-[0_14px_24px_rgba(56,129,201,0.18)]"
+              className="
+                group
+                min-w-[260px]
+                shrink-0
+                rounded-[10px]
+                !bg-[#083650]
+                px-5
+                py-3
+                text-[10.5px]
+                font-black
+                text-white
+                shadow-[0_10px_22px_rgba(8,54,80,.18)]
+
+                hover:!bg-[#0D4968]
+              "
+              style={{
+                backgroundColor: "#083650",
+                color: "#FFFFFF",
+              }}
             >
-              {analysisState.status === "loading"
-                ? "Generating report..."
-                : "Run ATS + JD check"}
+              <span className="inline-flex items-center gap-3">
+                {analysisState.status === "loading"
+                  ? "Generating report..."
+                  : "Run ATS + JD Check"}
+
+                {analysisState.status !== "loading" ? (
+                  <ArrowRight
+                    className="
+                      h-[14px]
+                      w-[14px]
+                      transition-transform
+
+                      group-hover:translate-x-1
+                    "
+                  />
+                ) : null}
+              </span>
             </Button>
           </div>
+
         </div>
       </section>
     </main>

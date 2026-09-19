@@ -11,13 +11,14 @@ function AppLayout() {
   const isResumeGameRoute = location.pathname === "/play-with-resume";
   const isHomeRoute = location.pathname === "/";
   const isDashboardRoute = location.pathname === "/dashboard";
-  const shouldHideNavbar = isResumeGameRoute || isDashboardRoute || isPrintMode || isEmbedded;
+  const isATSStartRoute = location.pathname === "/check-ats";
+  const shouldHideNavbar = isResumeGameRoute || isDashboardRoute || isATSStartRoute || isPrintMode || isEmbedded;
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen w-full overflow-x-hidden">
       {!shouldHideNavbar ? <Navbar /> : null}
-      <div className={shouldHideNavbar ? "w-full" : "page-shell"}>
-        <main className={shouldHideNavbar ? "min-w-0" : "min-w-0 space-y-4"}>
+      <div className={shouldHideNavbar ? "w-full overflow-x-hidden" : "page-shell w-full overflow-x-hidden"}>
+        <main className={shouldHideNavbar ? "min-w-0 overflow-x-hidden" : "min-w-0 space-y-4 overflow-x-hidden"}>
           <Outlet />
           {!isResumeGameRoute && isHomeRoute ? <Footer /> : null}
         </main>

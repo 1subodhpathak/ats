@@ -1,6 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { useUser } from "@clerk/clerk-react";
 import backgroundMusic from "./Background.mp3";
+import blueLogo from "../assets/logos/BlueLogo.png";
+import goldenLogo from "../assets/logos/GoldenLogo.png";
+import ResumeGameTour from "./ResumeGameTour";
 import {
   AlertCircle,
   Archive,
@@ -9,10 +13,13 @@ import {
   Briefcase,
   BriefcaseBusiness,
   CalendarDays,
+  Check,
   Code2,
   Crown,
+  ExternalLink,
   FileText,
   GraduationCap,
+  HelpCircle,
   HeartPulse,
   Linkedin,
   LineChart,
@@ -29,41 +36,87 @@ import {
   Volume2,
   VolumeX,
   Wrench,
-  Zap,
 } from "lucide-react";
 
 const THEMES = {
   dark: {
-    app: "bg-gray-950 text-cyan-50",
-    panel: "bg-gray-900/70 border-cyan-900/60",
-    panelStrong: "bg-gray-950/80 border-cyan-800/60",
-    card: "bg-gray-950/70 border-gray-800 hover:border-cyan-700",
-    staged: "border-cyan-400 bg-cyan-900/40 shadow-[0_0_15px_rgba(34,211,238,0.2)]",
-    iconShell: "bg-gray-800",
-    iconShellActive: "bg-cyan-500/20",
-    textMuted: "text-gray-400",
-    textSoft: "text-gray-500",
-    canvas: "bg-white text-gray-900",
-    feedbackSuccess: "bg-emerald-100 text-emerald-800 border-emerald-400",
-    feedbackError: "bg-red-100 text-red-800 border-red-400",
+    app: "bg-transparent text-white",
+    panel: "bg-[#0B3A57] border-[#2C6079] shadow-[0_18px_40px_rgba(5,35,54,.16)]",
+    panelStrong: "bg-[#082F48] border-[#44677A]",
+    card: "bg-[#124866] border-[#2B607B] text-white hover:border-[#D2A044] hover:bg-[#15506F]",
+    staged: "border-[#D49A2E] bg-[#173F59] shadow-[0_0_0_1px_rgba(212,154,46,.10),0_10px_24px_rgba(4,29,45,.16)]",
+    iconShell: "bg-[#1C536F] text-[#93AFC0]",
+    iconShellActive: "bg-[#FFF0C9] text-[#C48615]",
+    textMuted: "text-[#B5C8D3]",
+    textSoft: "text-[#88A5B6]",
+    canvas: "bg-white text-[#263845]",
+    feedbackSuccess: "bg-[#EAF7F2] text-[#11735D] border-[#5AB79B]",
+    feedbackError: "bg-[#FDEDEC] text-[#B54743] border-[#E28B87]",
   },
   light: {
-    app: "bg-slate-100 text-slate-900",
-    panel: "bg-white/85 border-sky-200",
-    panelStrong: "bg-white/95 border-sky-300",
-    card: "bg-slate-50 border-slate-200 hover:border-sky-400",
-    staged: "border-sky-500 bg-sky-50 shadow-[0_0_15px_rgba(14,165,233,0.15)]",
-    iconShell: "bg-slate-100",
-    iconShellActive: "bg-sky-100",
-    textMuted: "text-slate-600",
-    textSoft: "text-slate-500",
-    canvas: "bg-white text-slate-900",
-    feedbackSuccess: "bg-emerald-100 text-emerald-800 border-emerald-400",
-    feedbackError: "bg-red-100 text-red-800 border-red-400",
+    app: "bg-transparent text-[#123A54]",
+    panel: "bg-[#FFFEFC] border-[#D8E2E7] shadow-[0_16px_36px_rgba(18,58,84,.06)]",
+    panelStrong: "bg-[#FBF6ED] border-[#DFC99E]",
+    card: "bg-white border-[#D8E2E7] text-[#123A54] hover:border-[#C98A1D]",
+    staged: "border-[#C98A1D] bg-[#FFF5DE] shadow-[0_8px_20px_rgba(201,138,29,.08)]",
+    iconShell: "bg-[#EEF4F7] text-[#7191A4]",
+    iconShellActive: "bg-[#FFF0CC] text-[#C48615]",
+    textMuted: "text-[#688394]",
+    textSoft: "text-[#86A0AE]",
+    canvas: "bg-white text-[#263845]",
+    feedbackSuccess: "bg-[#EAF7F2] text-[#11735D] border-[#5AB79B]",
+    feedbackError: "bg-[#FDEDEC] text-[#B54743] border-[#E28B87]",
   },
 };
 
+const RESUME_REWARD_TOKENS = 500;
+const MAX_RESUME_REWARD_TOKENS = 3500;
+
+function getGameStorageKey(userId) {
+  return `careersense:resume-quest:${userId}`;
+}
+
+async function claimResumeQuestReward({ userId, profileId }) {
+  const apiBase =
+    import.meta.env.VITE_API_URL ||
+    import.meta.env.VITE_BACKEND_URL ||
+    import.meta.env.VITE_API_BASE_URL ||
+    "https://server.datasenseai.com";
+  const backendUrl = apiBase.replace(/\/careersense\/ats\/?$/, "");
+  const token =
+    typeof window.clerkGetToken === "function"
+      ? await window.clerkGetToken()
+      : null;
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 12000);
+  let response;
+  try {
+    response = await fetch(
+      `${backendUrl}/careersense/subscription/resume-quest/complete`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ clerkId: userId, profileId }),
+        signal: controller.signal,
+      }
+    );
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.success === false) {
+    throw new Error(data.message || "Your reward could not be added right now.");
+  }
+  return data;
+}
+
 const PROFILE_ICONS = {
+  "data-analyst": LineChart,
+  "data-engineer": Archive,
   "business-analyst": BriefcaseBusiness,
   "software-developer": Code2,
   ceo: Crown,
@@ -95,8 +148,65 @@ const BASE_ZONES = [
 
 const PROFILE_DATA = [
   {
+    id: "data-analyst",
+    label: "Data Analyst",
+    templateName: "ATS Classic",
+    accent: "indigo",
+    headerTitle: "Data Analyst Resume",
+    items: [
+      { id: "da-name", kind: "name", category: "Identity", label: "Full Name", icon: User, preview: "PRIYA SHARMA" },
+      { id: "da-title", kind: "title", category: "Identity", label: "Professional Title", icon: LineChart, preview: "Senior Data Analyst" },
+      { id: "da-phone", kind: "phone", category: "Contact", label: "Phone Number", icon: Phone, preview: "+91 98760 12458" },
+      { id: "da-email", kind: "email", category: "Contact", label: "Email Address", icon: Mail, preview: "priya.sharma.analytics@email.com" },
+      { id: "da-linkedin", kind: "linkedin", category: "Contact", label: "LinkedIn", icon: Linkedin, preview: "linkedin.com/in/priyasharma-data" },
+      { id: "da-location", kind: "location", category: "Contact", label: "Location", icon: MapPin, preview: "Hyderabad, India" },
+      { id: "da-summary", kind: "summary", category: "Summary", label: "Professional Summary", icon: FileText, preview: "Data analyst with 5 years of experience turning complex product and customer data into dashboards, experiments, and decisions for cross-functional teams." },
+      { id: "da-job1-title", kind: "jobTitle1", category: "Experience", label: "Latest Job Title", icon: Briefcase, preview: "Senior Data Analyst | InsightLoop" },
+      { id: "da-job1-dates", kind: "jobDates1", category: "Experience", label: "Latest Job Dates", icon: CalendarDays, preview: "Mar 2021 - Present" },
+      { id: "da-job1-desc", kind: "jobDesc1", category: "Experience", label: "Latest Job Highlights", icon: Briefcase, preview: "Built a customer-retention dashboard combining 8 data sources, helping product teams reduce monthly churn by 14%." },
+      { id: "da-job2-title", kind: "jobTitle2", category: "Experience", label: "Previous Job Title", icon: Briefcase, preview: "Data Analyst | MarketBridge Technologies" },
+      { id: "da-job2-dates", kind: "jobDates2", category: "Experience", label: "Previous Job Dates", icon: CalendarDays, preview: "Jul 2018 - Feb 2021" },
+      { id: "da-job2-desc", kind: "jobDesc2", category: "Experience", label: "Previous Job Highlights", icon: Briefcase, preview: "Automated weekly sales reporting with SQL and Power BI, reducing preparation time from 7 hours to 40 minutes." },
+      { id: "da-education1", kind: "education1", category: "Education", label: "Master's Degree", icon: GraduationCap, preview: "M.Sc., Data Science - University of Hyderabad | 2016 - 2018" },
+      { id: "da-education2", kind: "education2", category: "Education", label: "Bachelor's Degree", icon: GraduationCap, preview: "B.Sc., Statistics - University of Delhi | 2013 - 2016" },
+      { id: "da-skills", kind: "skills", category: "Skills", label: "Skills", icon: Wrench, preview: "SQL, Python, Power BI, Tableau, Excel, Statistics, A/B Testing, Data Visualization" },
+      { id: "da-certificate", kind: "certificate", category: "Certificates", label: "Certificate", icon: ShieldCheck, preview: "Google Advanced Data Analytics Professional Certificate" },
+      { id: "da-award", kind: "award", category: "Awards", label: "Award", icon: Trophy, preview: "Analytics Impact Award 2023 for customer retention insights" },
+      { id: "da-photo", kind: "photo", category: "Identity", label: "Profile Photo", icon: User, preview: "Professional analyst headshot", visual: "photo", photoUrl: "https://randomuser.me/api/portraits/women/65.jpg" },
+    ],
+  },
+  {
+    id: "data-engineer",
+    label: "Data Engineer",
+    templateName: "Systems Sidebar",
+    accent: "teal",
+    headerTitle: "Data Engineer Resume",
+    items: [
+      { id: "de-name", kind: "name", category: "Identity", label: "Full Name", icon: User, preview: "VIKRAM RAO" },
+      { id: "de-title", kind: "title", category: "Identity", label: "Professional Title", icon: Archive, preview: "Senior Data Engineer" },
+      { id: "de-phone", kind: "phone", category: "Contact", label: "Phone Number", icon: Phone, preview: "+91 98204 77316" },
+      { id: "de-email", kind: "email", category: "Contact", label: "Email Address", icon: Mail, preview: "vikram.rao.engineering@email.com" },
+      { id: "de-linkedin", kind: "linkedin", category: "Contact", label: "LinkedIn", icon: Linkedin, preview: "linkedin.com/in/vikramrao-data" },
+      { id: "de-location", kind: "location", category: "Contact", label: "Location", icon: MapPin, preview: "Bengaluru, India" },
+      { id: "de-summary", kind: "summary", category: "Summary", label: "Professional Summary", icon: FileText, preview: "Data engineer with 6 years of experience designing reliable batch and streaming pipelines, cloud data platforms, and analytics-ready data models." },
+      { id: "de-job1-title", kind: "jobTitle1", category: "Experience", label: "Latest Job Title", icon: Briefcase, preview: "Senior Data Engineer | CloudMetric" },
+      { id: "de-job1-dates", kind: "jobDates1", category: "Experience", label: "Latest Job Dates", icon: CalendarDays, preview: "Jan 2021 - Present" },
+      { id: "de-job1-desc", kind: "jobDesc1", category: "Experience", label: "Latest Job Highlights", icon: Briefcase, preview: "Rebuilt a Spark-based ingestion platform processing 4 TB daily, improving pipeline reliability to 99.9% and cutting compute cost by 28%." },
+      { id: "de-job2-title", kind: "jobTitle2", category: "Experience", label: "Previous Job Title", icon: Briefcase, preview: "Data Engineer | StreamForge Labs" },
+      { id: "de-job2-dates", kind: "jobDates2", category: "Experience", label: "Previous Job Dates", icon: CalendarDays, preview: "Jun 2017 - Dec 2020" },
+      { id: "de-job2-desc", kind: "jobDesc2", category: "Experience", label: "Previous Job Highlights", icon: Briefcase, preview: "Developed Airflow pipelines and dimensional models that reduced finance data delivery latency from 12 hours to 90 minutes." },
+      { id: "de-education1", kind: "education1", category: "Education", label: "Master's Degree", icon: GraduationCap, preview: "M.Tech, Data Engineering - IIIT Bangalore | 2015 - 2017" },
+      { id: "de-education2", kind: "education2", category: "Education", label: "Bachelor's Degree", icon: GraduationCap, preview: "B.E., Computer Science - Pune University | 2011 - 2015" },
+      { id: "de-skills", kind: "skills", category: "Skills", label: "Skills", icon: Wrench, preview: "Python, SQL, Spark, Kafka, Airflow, dbt, Snowflake, AWS, Docker, Data Modeling" },
+      { id: "de-certificate", kind: "certificate", category: "Certificates", label: "Certificate", icon: ShieldCheck, preview: "Google Cloud Professional Data Engineer" },
+      { id: "de-award", kind: "award", category: "Awards", label: "Award", icon: Trophy, preview: "Platform Reliability Award for modernizing enterprise data pipelines" },
+      { id: "de-photo", kind: "photo", category: "Identity", label: "Profile Photo", icon: User, preview: "Professional engineering headshot", visual: "photo", photoUrl: "https://randomuser.me/api/portraits/men/46.jpg" },
+    ],
+  },
+  {
     id: "business-analyst",
     label: "Business Analyst",
+    templateName: "Modern Timeline",
     accent: "cyan",
     headerTitle: "Business Analyst Resume",
     items: [
@@ -124,6 +234,7 @@ const PROFILE_DATA = [
   {
     id: "software-developer",
     label: "Software Developer",
+    templateName: "Technical Profile",
     accent: "blue",
     headerTitle: "Software Developer Resume",
     items: [
@@ -151,6 +262,7 @@ const PROFILE_DATA = [
   {
     id: "ceo",
     label: "CEO",
+    templateName: "Ivy League Executive",
     accent: "amber",
     headerTitle: "CEO Resume",
     items: [
@@ -178,6 +290,7 @@ const PROFILE_DATA = [
   {
     id: "financial-analyst",
     label: "Financial Analyst",
+    templateName: "Financial Ledger",
     accent: "emerald",
     headerTitle: "Financial Analyst Resume",
     items: [
@@ -205,6 +318,7 @@ const PROFILE_DATA = [
   {
     id: "doctor",
     label: "Doctor",
+    templateName: "Clinical Profile",
     accent: "rose",
     headerTitle: "Doctor Resume",
     items: [
@@ -232,6 +346,34 @@ const PROFILE_DATA = [
 ];
 
 const RESUME_CANVAS_THEMES = {
+  "data-analyst": {
+    pageClass: "bg-[#fbfcff]",
+    headingSlash: "text-[#4f5f9f]",
+    titleClass: "text-[#40518f]",
+    timelineClass: "bg-[#9aa7cf]",
+    timelineDotClass: "border-[#9aa7cf]",
+    panelBorderClass: "border-[#d7dcef]",
+    photoBgClass: "bg-[#f0f2fa]",
+    photoPlaceholderClass: "text-[#7d89ad]",
+    dividerClass: "border-[#e2e5f2]",
+    namePrimaryClass: "text-[#17223b]",
+    nameSecondaryClass: "text-[#939bb4]",
+    fontClass: "font-sans",
+  },
+  "data-engineer": {
+    pageClass: "bg-[#fbfefd]",
+    headingSlash: "text-[#28776f]",
+    titleClass: "text-[#216b64]",
+    timelineClass: "bg-[#82b6ae]",
+    timelineDotClass: "border-[#82b6ae]",
+    panelBorderClass: "border-[#cfe3df]",
+    photoBgClass: "bg-[#edf7f5]",
+    photoPlaceholderClass: "text-[#6f9993]",
+    dividerClass: "border-[#dcebe8]",
+    namePrimaryClass: "text-[#16322f]",
+    nameSecondaryClass: "text-[#8ba5a1]",
+    fontClass: "font-sans",
+  },
   "business-analyst": {
     pageClass: "bg-[#fffdfc]",
     headingSlash: "text-[#9e2f2f]",
@@ -258,7 +400,7 @@ const RESUME_CANVAS_THEMES = {
     dividerClass: "border-[#dce7f2]",
     namePrimaryClass: "text-[#132033]",
     nameSecondaryClass: "text-[#8ea4bf]",
-    fontClass: "font-mono tracking-tight",
+    fontClass: "font-sans",
   },
   ceo: {
     pageClass: "bg-[#fffdfa]",
@@ -286,7 +428,7 @@ const RESUME_CANVAS_THEMES = {
     dividerClass: "border-[#dceee5]",
     namePrimaryClass: "text-[#163126]",
     nameSecondaryClass: "text-[#97b4a7]",
-    fontClass: "font-sans text-[0.94em]",
+    fontClass: "font-sans",
   },
   doctor: {
     pageClass: "bg-[#fffdfd]",
@@ -326,7 +468,7 @@ function useGameAudio(enabled) {
   const audioContextRef = useRef(null);
   const backgroundAudioRef = useRef(null);
   const armedRef = useRef(false);
-  const lastVolumeRef = useRef(0.45);
+  const lastVolumeRef = useRef(0.15);
 
   function getContext() {
     if (typeof window === "undefined") {
@@ -492,21 +634,28 @@ function getResumeCanvasTheme(profileId) {
   return RESUME_CANVAS_THEMES[profileId] ?? RESUME_CANVAS_THEMES["business-analyst"];
 }
 
-export default function ResumeBuilderGame({ onBackToEntry }) {
+export default function ResumeBuilderGame({ onBackToEntry, audioActive = true }) {
+  const { user } = useUser();
   const reduceMotion = useReducedMotion();
   const [themeMode, setThemeMode] = useState("dark");
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [musicVolume, setMusicVolume] = useState(0.45);
+  const [musicVolume, setMusicVolume] = useState(0.15);
   const [activeProfileId, setActiveProfileId] = useState(PROFILE_DATA[0].id);
   const [inventory, setInventory] = useState(PROFILE_DATA[0].items);
   const [stagedItem, setStagedItem] = useState(null);
   const [canvasZones, setCanvasZones] = useState(cloneZoneTemplate);
   const [score, setScore] = useState(0);
+  const [completedProfileIds, setCompletedProfileIds] = useState([]);
+  const [gameProgressLoaded, setGameProgressLoaded] = useState(false);
+  const [gameProgressUserId, setGameProgressUserId] = useState(null);
+  const [rewardDialog, setRewardDialog] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
 
   const feedbackTimer = useRef(null);
-  const sounds = useGameAudio(soundEnabled);
+  const completionInFlightRef = useRef(null);
+  const sounds = useGameAudio(soundEnabled && audioActive);
   const theme = getThemeStyles(themeMode);
 
   const activeProfile = useMemo(
@@ -528,19 +677,49 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
   }, [musicVolume, sounds]);
 
   useEffect(() => {
-    if (soundEnabled) {
+    if (soundEnabled && audioActive) {
       sounds.armMusic();
     }
-  }, [soundEnabled, sounds]);
+  }, [audioActive, soundEnabled, sounds]);
 
   useEffect(() => {
     setInventory(activeProfile.items);
     setStagedItem(null);
     setCanvasZones(cloneZoneTemplate());
-    setScore(0);
     clearTimeout(feedbackTimer.current);
     setFeedback(null);
   }, [activeProfile]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    setGameProgressLoaded(false);
+    try {
+      const saved = JSON.parse(localStorage.getItem(getGameStorageKey(user.id)) || "{}");
+      const completedIds = Array.isArray(saved.completedProfileIds)
+        ? saved.completedProfileIds.filter((id) => PROFILE_DATA.some((profile) => profile.id === id))
+        : [];
+      setCompletedProfileIds(completedIds);
+      setScore(Number.isFinite(saved.score) ? saved.score : 0);
+      if (completedIds.includes(activeProfileId)) {
+        const nextProfile = PROFILE_DATA.find((profile) => !completedIds.includes(profile.id));
+        if (nextProfile) setActiveProfileId(nextProfile.id);
+      }
+    } catch {
+      setCompletedProfileIds([]);
+      setScore(0);
+    } finally {
+      setGameProgressUserId(user.id);
+      setGameProgressLoaded(true);
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !gameProgressLoaded || gameProgressUserId !== user.id) return;
+    localStorage.setItem(
+      getGameStorageKey(user.id),
+      JSON.stringify({ completedProfileIds, score })
+    );
+  }, [completedProfileIds, gameProgressLoaded, gameProgressUserId, score, user?.id]);
 
   useEffect(
     () => () => {
@@ -568,7 +747,7 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
   }
 
   function placeItem(item, zoneId) {
-    if (!item) {
+    if (!item || completedProfileIds.includes(activeProfile.id)) {
       return;
     }
 
@@ -598,10 +777,53 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
 
     const nextRemaining = inventory.length - 1;
     if (nextRemaining === 0) {
-      showFeedback(`Congratulations! You built a perfect ${activeProfile.label} resume.`, "success");
-      setPreviewOpen(true);
+      completeActiveResume();
     } else {
       showFeedback("Perfect placement! +150", "success");
+    }
+  }
+
+  async function completeActiveResume() {
+    const profileId = activeProfile.id;
+    if (
+      completedProfileIds.includes(profileId) ||
+      completionInFlightRef.current === profileId
+    ) {
+      return;
+    }
+
+    completionInFlightRef.current = profileId;
+    setCompletedProfileIds((current) => [...new Set([...current, profileId])]);
+    setPreviewOpen(false);
+    setRewardDialog({ status: "claiming", profileLabel: activeProfile.label });
+    showFeedback(`Congratulations! You completed the ${activeProfile.label} resume.`, "success");
+
+    await submitRewardClaim(profileId, activeProfile.label);
+  }
+
+  async function submitRewardClaim(profileId, profileLabel) {
+    completionInFlightRef.current = profileId;
+    setRewardDialog({ status: "claiming", profileLabel });
+    try {
+      if (!user?.id) throw new Error("Please sign in again to claim your token reward.");
+      const reward = await claimResumeQuestReward({ userId: user.id, profileId });
+      setRewardDialog({
+        status: "success",
+        profileLabel,
+        tokensAwarded: reward.tokensAwarded ?? RESUME_REWARD_TOKENS,
+        tokensRemaining: reward.tokensRemaining,
+      });
+      window.dispatchEvent(new CustomEvent("careersense:tokens-updated"));
+    } catch (error) {
+      setRewardDialog({
+        status: "error",
+        profileLabel,
+        message: error.message,
+      });
+    } finally {
+      if (completionInFlightRef.current === profileId) {
+        completionInFlightRef.current = null;
+      }
     }
   }
 
@@ -621,40 +843,49 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
   }
 
   function resetGame() {
+    if (completedProfileIds.includes(activeProfile.id)) return;
     setInventory(activeProfile.items);
     setStagedItem(null);
     setCanvasZones(cloneZoneTemplate());
-    setScore(0);
     showFeedback(`${activeProfile.headerTitle} reset`, "success");
   }
 
   function renderResumePage(previewMode = false) {
     const sectionHeading = (label, centered = false) => (
-      <div className={`mb-4 flex items-center gap-2 ${centered ? "justify-center" : ""}`}>
-        <span className={`text-[26px] font-light leading-none ${resumeTheme.headingSlash}`}>/</span>
-        <h2 className="text-[20px] font-medium text-[#222]">{label}</h2>
+      <div className={`mb-3 flex items-center gap-3 ${centered ? "justify-center" : ""}`}>
+        <h2 className={`text-[13px] font-black uppercase tracking-[0.16em] ${resumeTheme.titleClass}`}>{label}</h2>
+        {!centered ? <span className={`h-px min-w-8 flex-1 ${resumeTheme.timelineClass}`} /> : null}
       </div>
     );
 
-    const zoneCard = (zoneId, className = "", renderFilled) => (
-      <div
-        key={zoneId}
-        className={`rounded-md border border-dashed transition-colors ${resumeTheme.panelBorderClass} ${className}`}
-        onDragOver={handleDragOver}
-        onDrop={(event) => handleDrop(event, zoneId)}
-        onClick={() => handleZoneClick(zoneId)}
-      >
-        {canvasZones[zoneId].content ? (
-          renderFilled(canvasZones[zoneId].content)
-        ) : (
-          <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#b9a7a7]">{canvasZones[zoneId].title}</p>
-        )}
-      </div>
-    );
+    const zoneCard = (zoneId, className = "", renderFilled) => {
+      const content = canvasZones[zoneId].content;
+      return (
+        <div
+          key={zoneId}
+          className={`rounded-sm border transition-colors ${
+            content
+              ? "border-transparent"
+              : `border-dashed ${resumeTheme.panelBorderClass} bg-white/45`
+          } ${className}`}
+          onDragOver={handleDragOver}
+          onDrop={(event) => handleDrop(event, zoneId)}
+          onClick={() => handleZoneClick(zoneId)}
+        >
+          {content ? (
+            renderFilled(content)
+          ) : (
+            <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-[#9aa4ad]">{canvasZones[zoneId].title}</p>
+          )}
+        </div>
+      );
+    };
 
     const photoZone = (className = "h-[154px]") => (
       <div
-        className={`flex items-center justify-center overflow-hidden border border-dashed transition-colors ${resumeTheme.panelBorderClass} ${resumeTheme.photoBgClass} ${className}`}
+        className={`flex items-center justify-center overflow-hidden border transition-colors ${
+          canvasZones.photo.content ? "border-transparent" : `border-dashed ${resumeTheme.panelBorderClass}`
+        } ${resumeTheme.photoBgClass} ${className}`}
         onDragOver={handleDragOver}
         onDrop={(event) => handleDrop(event, "photo")}
         onClick={() => handleZoneClick("photo")}
@@ -673,13 +904,13 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
 
     const nameBlock = (className = "text-[46px]") => (
       <div
-        className="rounded-md border border-dashed border-transparent px-1 py-1 transition-colors hover:border-[#dbcfcf]"
+        className={`rounded-sm border px-1 py-1 transition-colors ${canvasZones.name.content ? "border-transparent" : "border-dashed border-[#d8dde1]"}`}
         onDragOver={handleDragOver}
         onDrop={(event) => handleDrop(event, "name")}
         onClick={() => handleZoneClick("name")}
       >
         {canvasZones.name.content ? (
-          <h1 className={`${className} font-light leading-none tracking-[-0.045em] text-[#272727]`}>
+          <h1 className={`${className} font-semibold leading-none tracking-[-0.035em] text-[#272727]`}>
             {(() => {
               const parts = canvasZones.name.content.preview.split(" ");
               const first = parts[0] ?? "";
@@ -688,7 +919,7 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
               return (
                 <>
                   <span className={`font-normal ${resumeTheme.namePrimaryClass}`}>{first}</span>
-                  {rest ? <span className={`ml-3 ${resumeTheme.nameSecondaryClass}`}>{rest}</span> : null}
+                  {rest ? <span className={`ml-2 ${resumeTheme.namePrimaryClass}`}>{rest}</span> : null}
                 </>
               );
             })()}
@@ -701,13 +932,13 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
 
     const titleBlock = (className = "") => (
       <div
-        className={`rounded-md border border-dashed border-transparent px-1 py-1 transition-colors hover:border-[#dbcfcf] ${className}`}
+        className={`rounded-sm border px-1 py-1 transition-colors ${canvasZones.title.content ? "border-transparent" : "border-dashed border-[#d8dde1]"} ${className}`}
         onDragOver={handleDragOver}
         onDrop={(event) => handleDrop(event, "title")}
         onClick={() => handleZoneClick("title")}
       >
         {canvasZones.title.content ? (
-          <p className={`text-[17px] font-semibold tracking-[0.01em] ${resumeTheme.titleClass}`}>{canvasZones.title.content.preview}</p>
+          <p className={`text-[15px] font-bold uppercase tracking-[0.08em] ${resumeTheme.titleClass}`}>{canvasZones.title.content.preview}</p>
         ) : (
           <p className="text-[11px] font-bold uppercase tracking-[0.32em] text-[#b9a7a7]">{canvasZones.title.title}</p>
         )}
@@ -736,21 +967,21 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
           ["job1-title", "job1-dates", "job1-desc"],
           ["job2-title", "job2-dates", "job2-desc"],
         ].map(([titleZone, dateZone, descZone]) => (
-          <div key={titleZone} className="mb-7">
+          <div key={titleZone} className="mb-5">
             {zoneCard(titleZone, "px-4 py-3", (content) => (
-              <p className="whitespace-pre-line text-[16px] font-semibold leading-6 text-[#202020]">{content.preview}</p>
+              <p className="whitespace-pre-line text-[15px] font-bold leading-6 text-[#202020]">{content.preview}</p>
             ))}
             {zoneCard(dateZone, "mt-2 px-4 py-2", (content) => (
-              <p className={`text-[14px] font-semibold ${resumeTheme.titleClass}`}>{content.preview}</p>
+              <p className={`text-[12px] font-bold uppercase tracking-[0.05em] ${resumeTheme.titleClass}`}>{content.preview}</p>
             ))}
             {zoneCard(descZone, "mt-3 px-4 py-3", (content) => (
-              <ul className="space-y-2 text-[14px] leading-8 text-[#4a4a4a]">
+              <ul className="space-y-1.5 text-[13px] leading-6 text-[#4a4a4a]">
                 {content.preview
                   .split(/(?<=\.)\s+/)
                   .filter(Boolean)
                   .map((point, index) => (
                     <li key={`${descZone}-${index}`} className="flex gap-3">
-                      <span className="mt-[11px] inline-block h-1.5 w-1.5 rounded-full bg-[#7d7d7d]" />
+                      <span className={`mt-[9px] inline-block h-1.5 w-1.5 rounded-full ${resumeTheme.timelineClass}`} />
                       <span>{point}</span>
                     </li>
                   ))}
@@ -759,6 +990,98 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
           </div>
         ))}
       </>
+    );
+
+    const dataAnalystLayout = (
+      <div>
+        <header className={`border-b-2 pb-5 ${resumeTheme.dividerClass}`}>
+          <div className="grid grid-cols-[1fr_92px] items-center gap-6">
+            <div>
+              {nameBlock("text-[38px]")}
+              {titleBlock("mt-1")}
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-[11px] text-[#46546b]">
+                {["phone", "email", "linkedin", "location"].map((zoneId) => contactZone(zoneId))}
+              </div>
+            </div>
+            {photoZone("h-[92px] rounded-sm")}
+          </div>
+        </header>
+        <main className="mt-6 space-y-6">
+          <section>
+            {sectionHeading("Professional Summary")}
+            {zoneCard("summary", "px-2 py-2", (content) => <p className="text-[13px] leading-6 text-[#394354]">{content.preview}</p>)}
+          </section>
+          <section>
+            {sectionHeading("Professional Experience")}
+            {experienceStack()}
+          </section>
+          <div className={`grid grid-cols-[1.15fr_.85fr] gap-8 border-t pt-5 ${resumeTheme.dividerClass}`}>
+            <section>
+              {sectionHeading("Education")}
+              {["education1", "education2"].map((zoneId) =>
+                zoneCard(zoneId, "mb-2 px-2 py-2", (content) => <p className="text-[12px] font-medium leading-5 text-[#394354]">{content.preview}</p>)
+              )}
+            </section>
+            <section>
+              {sectionHeading("Analytics Toolkit")}
+              {zoneCard("skills", "px-2 py-2", (content) => <p className="text-[12px] leading-5 text-[#394354]">{content.preview}</p>)}
+            </section>
+          </div>
+          <div className="grid grid-cols-2 gap-6">
+            {zoneCard("certificate", "px-2 py-2", (content) => <p className="text-[12px] leading-5 text-[#394354]"><strong className={resumeTheme.titleClass}>Certification:</strong> {content.preview}</p>)}
+            {zoneCard("award", "px-2 py-2", (content) => <p className="text-[12px] leading-5 text-[#394354]"><strong className={resumeTheme.titleClass}>Recognition:</strong> {content.preview}</p>)}
+          </div>
+        </main>
+      </div>
+    );
+
+    const dataEngineerLayout = (
+      <div className="grid grid-cols-[1fr_210px] gap-8">
+        <main>
+          <header className={`border-b-[3px] pb-5 ${resumeTheme.dividerClass}`}>
+            {nameBlock("text-[39px]")}
+            {titleBlock("mt-1")}
+          </header>
+          <section className="mt-6">
+            {sectionHeading("Engineering Profile")}
+            {zoneCard("summary", "px-2 py-2", (content) => <p className="text-[13px] leading-6 text-[#354d4a]">{content.preview}</p>)}
+          </section>
+          <section className="mt-7">
+            {sectionHeading("Data Platform Experience")}
+            {experienceStack()}
+          </section>
+          <section className="mt-7">
+            {sectionHeading("Education")}
+            <div className="grid grid-cols-2 gap-4">
+              {["education1", "education2"].map((zoneId) =>
+                zoneCard(zoneId, "px-2 py-2", (content) => <p className="text-[12px] leading-5 text-[#354d4a]">{content.preview}</p>)
+              )}
+            </div>
+          </section>
+        </main>
+        <aside className={`min-h-[900px] border-l px-5 ${resumeTheme.dividerClass} ${resumeTheme.photoBgClass}`}>
+          <div className="pt-5">{photoZone("h-[170px] rounded-sm")}</div>
+          <section className="mt-6 text-[11px] leading-5 text-[#355b56]">
+            {sectionHeading("Contact")}
+            <div className="space-y-2">{["phone", "email", "linkedin", "location"].map((zoneId) => contactZone(zoneId))}</div>
+          </section>
+          <section className="mt-7">
+            {sectionHeading("Technology Stack")}
+            {zoneCard("skills", "px-2 py-2", (content) => (
+              <div className="flex flex-wrap gap-1.5">
+                {content.preview.split(",").map((skill) => skill.trim()).filter(Boolean).map((skill) => (
+                  <span key={skill} className="rounded-sm border border-[#b8d4cf] bg-white/70 px-2 py-1 text-[10px] font-semibold text-[#216b64]">{skill}</span>
+                ))}
+              </div>
+            ))}
+          </section>
+          <section className="mt-7">
+            {sectionHeading("Credentials")}
+            {zoneCard("certificate", "px-2 py-2", (content) => <p className="text-[11px] leading-5 text-[#354d4a]">{content.preview}</p>)}
+            {zoneCard("award", "mt-3 px-2 py-2", (content) => <p className="text-[11px] leading-5 text-[#354d4a]">{content.preview}</p>)}
+          </section>
+        </aside>
+      </div>
     );
 
     const businessAnalystLayout = (
@@ -1006,6 +1329,8 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
     );
 
     const resumeLayouts = {
+      "data-analyst": dataAnalystLayout,
+      "data-engineer": dataEngineerLayout,
       "business-analyst": businessAnalystLayout,
       "software-developer": softwareDeveloperLayout,
       ceo: ceoLayout,
@@ -1028,7 +1353,7 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
 
   return (
     <div
-      className={`relative min-h-screen overflow-hidden bg-transparent p-0 selection:bg-cyan-100 ${theme.shell}`}
+      className={`relative h-[100dvh] min-h-0 overflow-hidden bg-transparent p-0 selection:bg-[#F0C15B]/35 ${theme.shell}`}
     >
       <video
         className="absolute inset-0 z-0 h-full w-full object-cover"
@@ -1044,7 +1369,7 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
           className="pointer-events-none absolute inset-[-12%] z-10 opacity-30"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(103,232,249,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(103,232,249,0.08) 1px, transparent 1px)",
+              "linear-gradient(rgba(201,138,29,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(13,53,87,0.05) 1px, transparent 1px)",
             backgroundSize: "120px 120px",
           }}
           animate={{
@@ -1060,7 +1385,7 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
         />
       ) : null}
       <motion.div
-        className="pointer-events-none absolute inset-y-0 left-[-14%] z-10 h-full w-[46%] bg-[radial-gradient(circle_at_center,rgba(34,211,238,0.28),rgba(34,211,238,0.05)_54%,transparent_74%)] blur-3xl"
+        className="pointer-events-none absolute inset-y-0 left-[-14%] z-10 h-full w-[46%] bg-[radial-gradient(circle_at_center,rgba(201,138,29,0.15),rgba(201,138,29,0.025)_54%,transparent_74%)] blur-3xl"
         animate={
           reduceMotion
             ? {}
@@ -1078,7 +1403,7 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
         }}
       />
       <motion.div
-        className="pointer-events-none absolute inset-y-0 right-[-12%] z-10 h-full w-[42%] bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.28),rgba(59,130,246,0.04)_52%,transparent_74%)] blur-3xl"
+        className="pointer-events-none absolute inset-y-0 right-[-12%] z-10 h-full w-[42%] bg-[radial-gradient(circle_at_center,rgba(37,105,137,0.17),rgba(37,105,137,0.025)_52%,transparent_74%)] blur-3xl"
         animate={
           reduceMotion
             ? {}
@@ -1096,7 +1421,7 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
         }}
       />
       <motion.div
-        className="pointer-events-none absolute inset-x-[-8%] top-[11%] z-10 h-[2px] bg-[linear-gradient(90deg,transparent,rgba(125,211,252,0.7),transparent)] shadow-[0_0_34px_rgba(56,189,248,0.48)]"
+        className="pointer-events-none absolute inset-x-[-8%] top-[11%] z-10 h-[2px] bg-[linear-gradient(90deg,transparent,rgba(201,138,29,0.42),transparent)] shadow-[0_0_26px_rgba(201,138,29,0.18)]"
         animate={
           reduceMotion
             ? {}
@@ -1112,7 +1437,7 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
         }}
       />
       <motion.div
-        className="pointer-events-none absolute inset-x-[-8%] bottom-[16%] z-10 h-[2px] bg-[linear-gradient(90deg,transparent,rgba(251,146,60,0.6),transparent)] shadow-[0_0_34px_rgba(251,146,60,0.34)]"
+        className="pointer-events-none absolute inset-x-[-8%] bottom-[16%] z-10 h-[2px] bg-[linear-gradient(90deg,transparent,rgba(37,105,137,0.38),transparent)] shadow-[0_0_26px_rgba(37,105,137,0.16)]"
         animate={
           reduceMotion
             ? {}
@@ -1139,7 +1464,7 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
           ].map((orb) => (
             <motion.div
               key={`${orb.left}-${orb.top}`}
-              className={`pointer-events-none absolute z-10 rounded-full border border-cyan-300/25 bg-cyan-300/18 shadow-[0_0_30px_rgba(56,189,248,0.34)] ${orb.size}`}
+              className={`pointer-events-none absolute z-10 rounded-full border border-[#E3B14C]/30 bg-[#E3B14C]/20 shadow-[0_0_22px_rgba(227,177,76,.22)] ${orb.size}`}
               style={{ left: orb.left, top: orb.top }}
               animate={{
                 y: [0, -22, 8, 0],
@@ -1157,36 +1482,47 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
           ))}
         </>
       ) : null}
-      <div className="absolute inset-0 z-20 bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.1),transparent_30%),radial-gradient(circle_at_bottom,rgba(37,99,235,0.12),transparent_28%),linear-gradient(180deg,rgba(2,6,23,0.45),rgba(2,6,23,0.56))]" />
+      <div className="absolute inset-0 z-20 bg-[radial-gradient(circle_at_top,rgba(201,138,29,0.07),transparent_30%),radial-gradient(circle_at_bottom,rgba(22,83,113,0.10),transparent_28%),linear-gradient(180deg,rgba(8,40,61,0.18),rgba(8,40,61,0.30))]" />
 
-      <div className="relative z-30 w-full px-6 py-6">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="relative z-30 flex h-full min-h-0 w-full flex-col px-4 py-3">
+        <div className="order-2 mb-3 flex shrink-0 flex-nowrap items-center justify-between gap-4 overflow-x-auto pb-1">
           <button
             type="button"
             onClick={handleBack}
-            className="inline-flex items-center gap-2 rounded-full border border-cyan-800/80 bg-slate-950/70 px-4 py-2 text-xs font-bold uppercase tracking-widest text-cyan-100 transition hover:border-cyan-500 hover:bg-cyan-950/50"
+            className="inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] border border-[#D7E1E6] bg-white/95 px-3 text-[10px] font-black uppercase tracking-[0.12em] text-[#123A54] shadow-[0_6px_16px_rgba(18,58,84,.07)] transition hover:border-[#C98A1D] hover:text-[#A96E10]"
           >
             <ArrowLeft className="h-4 w-4" />
             Back
           </button>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div data-tour="game-profiles" className="ml-auto flex min-w-max flex-none flex-nowrap items-center justify-end gap-1.5">
             {PROFILE_DATA.map((profile) => {
               const Icon = PROFILE_ICONS[profile.id];
               const active = profile.id === activeProfileId;
+              const profileCompleted = completedProfileIds.includes(profile.id);
 
               return (
                 <button
                   key={profile.id}
                   type="button"
-                  onClick={() => setActiveProfileId(profile.id)}
-                  className={`rounded-full border px-4 py-2 text-xs font-bold uppercase tracking-widest transition ${
-                    active ? "border-cyan-400 bg-cyan-900/50 text-cyan-100" : "border-cyan-900/60 bg-gray-950/50 text-cyan-300 hover:border-cyan-700"
+                  onClick={() => {
+                    if (!profileCompleted) setActiveProfileId(profile.id);
+                  }}
+                  disabled={profileCompleted}
+                  aria-label={profileCompleted ? `${profile.label} completed` : `Build ${profile.label} resume`}
+                  className={`h-10 min-w-0 whitespace-nowrap rounded-[10px] border px-3 text-[10px] font-bold uppercase tracking-[0.08em] transition ${
+                    profileCompleted
+                      ? "cursor-not-allowed border-[#47A184] bg-[#E8F6F0] text-[#1A735A]"
+                      : active
+                      ? "border-[#C98A1D] bg-[#FFF4D8] text-[#8C5C0B] shadow-[0_7px_18px_rgba(201,138,29,.10)]"
+                      : themeMode === "dark"
+                      ? "border-[#52758A] bg-[#0E405D] text-[#D6E3EA] hover:border-[#D2A044] hover:text-[#F2C667]"
+                      : "border-[#D8E2E7] bg-white/95 text-[#476779] hover:border-[#C98A1D]"
                   }`}
                 >
-                  <span className="inline-flex items-center gap-2">
-                    {Icon ? <Icon className="h-4 w-4" /> : null}
-                    {profile.label}
+                  <span className="inline-flex items-center gap-1.5">
+                    {profileCompleted ? <Check className="h-3.5 w-3.5" /> : Icon ? <Icon className="h-3.5 w-3.5" /> : null}
+                    <span>{profile.label}</span>
                   </span>
                 </button>
               );
@@ -1194,57 +1530,115 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
           </div>
         </div>
 
-        <div className={`mb-6 flex items-center justify-between rounded-2xl border p-4 ${theme.panelStrong}`}>
+        <div className={`order-1 mb-3 flex shrink-0 items-center justify-between rounded-2xl border px-4 py-3 ${theme.panelStrong}`}>
           <div className="flex items-center gap-3">
-            <Zap className="h-8 w-8 text-cyan-400" />
+            <img
+              src={themeMode === "dark" ? goldenLogo : blueLogo}
+              alt="CareerSense"
+              className="h-10 w-10 shrink-0 object-contain"
+            />
             <div>
-              <h1 className="text-2xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">
-                RESUME BUILDER
+              <h1
+                className={`text-xl font-black tracking-[0.08em] ${
+                  themeMode === "dark" ? "text-white" : "text-[#123A54]"
+                }`}
+              >
+                RESUME <span className="text-[#C98A1D]">BUILDER</span>
               </h1>
-              <p className={`text-xs uppercase tracking-widest ${theme.textMuted}`}>Construct from Scratch</p>
+              <p className={`text-[10px] uppercase tracking-[0.18em] ${theme.textMuted}`}>Construct from Scratch</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <a
+            data-tour="game-create-cv"
+            href="https://resume.careersenseai.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`mx-auto inline-flex min-h-10 shrink-0 items-center gap-2 rounded-[10px] border px-4 text-[11px] font-black uppercase tracking-[0.08em] transition hover:-translate-y-0.5 ${
+              themeMode === "dark"
+                ? "border-[#D4A13D] bg-[#FFF1CB] text-[#80530B] hover:bg-[#FFE5A8]"
+                : "border-[#C98A1D] bg-[#083650] text-white hover:bg-[#124A68]"
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            Generate ATS-Friendly CV
+            <ExternalLink className="h-3.5 w-3.5 opacity-70" />
+          </a>
+
+          <div data-tour="game-tools" className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setTourOpen(true)}
+              className={`inline-flex items-center gap-1.5 rounded-[9px] border px-3 py-2 text-[10px] font-black uppercase tracking-[.08em] transition ${themeMode === "dark" ? "border-[#52758A] text-[#E1EAF0] hover:border-[#D2A044] hover:text-[#F1C56B]" : "border-[#D8C49B] text-[#476779] hover:border-[#C98A1D]"}`}
+              aria-label="Start Resume Quest tour"
+            >
+              <HelpCircle className="h-4 w-4" /> Help
+            </button>
+            <div data-tour="game-progress" className="flex items-center gap-4">
             <div className="text-center">
               <p className={`text-[10px] uppercase tracking-widest ${theme.textSoft}`}>Progress</p>
-              <p className="text-2xl font-bold text-emerald-400">{progress}%</p>
+              <p className="text-xl font-black text-[#2EB58B]">{progress}%</p>
             </div>
-            <div className="border-l border-cyan-800/50 pl-4 text-center">
-              <p className={`text-[10px] uppercase tracking-widest ${theme.textSoft}`}>Score</p>
-              <p className="text-2xl font-bold text-orange-400">{score}</p>
+            <div className="border-l border-[#D8C49B]/50 pl-4 text-center">
+              <p className={`text-[10px] uppercase tracking-widest ${theme.textSoft}`}>Total Score</p>
+              <p className="text-xl font-black text-[#D6A033]">{score}</p>
+            </div>
+            <div className="border-l border-[#D8C49B]/50 pl-4 text-center">
+              <p className={`text-[10px] uppercase tracking-widest ${theme.textSoft}`}>Tokens Won</p>
+              <p className="text-xl font-black text-[#2EB58B]">
+                {Math.min(completedProfileIds.length * RESUME_REWARD_TOKENS, MAX_RESUME_REWARD_TOKENS).toLocaleString()}
+              </p>
+            </div>
             </div>
             <button
               type="button"
               onClick={() => setPreviewOpen(true)}
-              className="rounded-full border border-cyan-800 px-3 py-2 text-xs font-bold uppercase tracking-widest text-cyan-200 transition hover:bg-cyan-900/50"
+              className={`rounded-full border px-3 py-2 text-xs font-black uppercase tracking-[0.12em] transition ${
+                themeMode === "dark"
+                  ? "border-[#58798D] text-[#E3EDF2] hover:border-[#D2A044] hover:text-[#F1C56B]"
+                  : "border-[#D8C49B] text-[#476779] hover:border-[#C98A1D]"
+              }`}
             >
               Preview A4
             </button>
             <button
               type="button"
               onClick={() => setSoundEnabled((current) => !current)}
-              className="rounded-full border border-cyan-800 p-2 transition hover:bg-cyan-900/50"
+              className={`rounded-full border p-2 transition ${
+                themeMode === "dark"
+                  ? "border-[#52758A] text-[#F0C05A] hover:border-[#D6A13A] hover:bg-[#164A66]"
+                  : "border-[#D8C49B] text-[#B97B12] hover:bg-[#FFF4DD]"
+              }`}
               aria-label="Toggle sound"
             >
-              {soundEnabled ? <Volume2 className="h-4 w-4 text-cyan-400" /> : <VolumeX className="h-4 w-4 text-cyan-400" />}
+              {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
             </button>
-            <div className="flex items-center gap-2 rounded-full border border-cyan-800 px-3 py-2">
+            <div
+              className={`flex items-center gap-2 rounded-full border px-3 py-2 ${
+                themeMode === "dark"
+                  ? "border-[#52758A] text-[#D8E6ED]"
+                  : "border-[#D8C49B] text-[#476779]"
+              }`}
+            >
               <button
                 type="button"
                 onClick={() => setMusicVolume((current) => Math.max(0, Number((current - 0.1).toFixed(2))))}
-                className="text-sm font-black text-cyan-300 transition hover:text-cyan-100"
+                className="text-sm font-black text-[#D39A2D] transition hover:text-[#F0C15E]"
                 aria-label="Decrease music volume"
               >
                 -
               </button>
-              <span className="min-w-[52px] text-center text-[10px] font-bold uppercase tracking-widest text-cyan-200">
+              <span
+                className={`min-w-[52px] text-center text-[10px] font-bold uppercase tracking-widest ${
+                  themeMode === "dark" ? "text-[#C6D7E0]" : "text-[#607D8D]"
+                }`}
+              >
                 Vol {Math.round(musicVolume * 100)}
               </span>
               <button
                 type="button"
                 onClick={() => setMusicVolume((current) => Math.min(1, Number((current + 0.1).toFixed(2))))}
-                className="text-sm font-black text-cyan-300 transition hover:text-cyan-100"
+                className="text-sm font-black text-[#D39A2D] transition hover:text-[#F0C15E]"
                 aria-label="Increase music volume"
               >
                 +
@@ -1253,25 +1647,36 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
             <button
               type="button"
               onClick={() => setThemeMode((current) => (current === "dark" ? "light" : "dark"))}
-              className="rounded-full border border-cyan-800 p-2 transition hover:bg-cyan-900/50"
+              className={`rounded-full border p-2 transition ${
+                themeMode === "dark"
+                  ? "border-[#52758A] text-[#F0C05A] hover:border-[#D6A13A] hover:bg-[#164A66]"
+                  : "border-[#D8C49B] text-[#B97B12] hover:bg-[#FFF4DD]"
+              }`}
               aria-label="Toggle theme"
             >
-              {themeMode === "dark" ? <Sun className="h-4 w-4 text-cyan-400" /> : <MoonStar className="h-4 w-4 text-cyan-400" />}
+              {themeMode === "dark" ? <Sun className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
             </button>
             <button
               type="button"
               onClick={resetGame}
-              className="rounded-full border border-cyan-800 p-2 transition hover:bg-cyan-900/50"
+              disabled={completedProfileIds.includes(activeProfile.id)}
+              className={`rounded-full border p-2 transition ${
+                completedProfileIds.includes(activeProfile.id)
+                  ? "cursor-not-allowed border-[#52758A]/50 text-[#78909E] opacity-50"
+                  : themeMode === "dark"
+                  ? "border-[#52758A] text-[#F0C05A] hover:border-[#D6A13A] hover:bg-[#164A66]"
+                  : "border-[#D8C49B] text-[#B97B12] hover:bg-[#FFF4DD]"
+              }`}
               aria-label="Reset game"
             >
-              <RotateCcw className="h-4 w-4 text-cyan-400" />
+              <RotateCcw className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-[300px_270px_1fr] gap-6 h-[80vh]">
-          <div className={`flex h-full flex-col overflow-hidden rounded-2xl border p-4 shadow-xl shadow-cyan-900/10 ${theme.panel}`}>
-            <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-cyan-200">1. Data Inventory</h2>
+        <div className="order-3 grid min-h-0 flex-1 grid-cols-[270px_240px_minmax(0,1fr)] gap-4">
+          <div data-tour="game-inventory" className={`flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border p-3 shadow-[0_18px_36px_rgba(5,35,54,.10)] ${theme.panel}`}>
+            <h2 className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#E2AC43]">1. Data Inventory</h2>
             <div className="flex-1 space-y-2 overflow-y-auto pr-2">
               {inventory.map((item) => {
                 const Icon = item.icon;
@@ -1287,14 +1692,34 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
                       sounds.armMusic();
                       setStagedItem(item);
                     }}
-                    className={`w-full rounded-xl border p-3 text-left transition ${isStaged ? theme.staged : theme.card}`}
+                    className={`w-full rounded-xl border p-2.5 text-left transition ${isStaged ? theme.staged : theme.card}`}
                   >
                     <div className="flex items-center gap-3">
                       <div className={`rounded-lg p-2 ${isStaged ? theme.iconShellActive : theme.iconShell}`}>
-                        <Icon className={`h-4 w-4 ${isStaged ? "text-cyan-400" : "text-gray-400"}`} />
+                        <Icon
+                          className={`h-4 w-4 ${
+                            isStaged
+                              ? "text-[#C98A1D]"
+                              : themeMode === "dark"
+                              ? "text-[#88A8BA]"
+                              : "text-[#7191A4]"
+                          }`}
+                        />
                       </div>
                       <div>
-                        <p className={`text-sm font-semibold ${isStaged ? "text-cyan-100" : ""}`}>{item.label}</p>
+                        <p
+                          className={`text-sm font-semibold ${
+                            isStaged
+                              ? themeMode === "dark"
+                                ? "text-[#F4C664]"
+                                : "text-[#B77812]"
+                              : themeMode === "dark"
+                              ? "text-white"
+                              : "text-[#153D56]"
+                          }`}
+                        >
+                          {item.label}
+                        </p>
                         <p className={`text-[10px] uppercase tracking-wider ${theme.textSoft}`}>{item.category}</p>
                       </div>
                     </div>
@@ -1302,7 +1727,7 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
                 );
               })}
               {inventory.length === 0 && (
-                <div className="mt-10 flex flex-col items-center text-center font-semibold text-emerald-400">
+                <div className="mt-10 flex flex-col items-center text-center font-semibold text-[#35B18B]">
                   <ShieldCheck className="mb-2 h-10 w-10" />
                   All fields placed!
                 </div>
@@ -1310,8 +1735,8 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
             </div>
           </div>
 
-          <div className={`relative flex h-full flex-col rounded-2xl border p-4 shadow-xl shadow-cyan-900/10 ${theme.panel}`}>
-            <h2 className="mb-4 text-sm font-bold uppercase tracking-widest text-cyan-200">2. Prep & Staging</h2>
+          <div data-tour="game-staging" className={`relative flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border p-3 shadow-[0_18px_36px_rgba(5,35,54,.10)] ${theme.panel}`}>
+            <h2 className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-[#E2AC43]">2. Prep & Staging</h2>
 
             <AnimatePresence mode="wait">
               {stagedItem ? (
@@ -1323,18 +1748,24 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
                   className="flex h-full flex-col"
                 >
                   <div className={`mb-4 flex-1 rounded-xl border p-5 ${theme.panelStrong}`}>
-                    <div className="mb-4 flex items-center gap-2 border-b border-cyan-900 pb-2">
-                      <stagedItem.icon className="h-5 w-5 text-cyan-400" />
-                      <h3 className="font-bold text-cyan-100">{stagedItem.category} Block</h3>
+                    <div className="mb-4 flex items-center gap-2 border-b border-[#59798A]/45 pb-2">
+                      <stagedItem.icon className="h-5 w-5 text-[#D39A2D]" />
+                      <h3
+                        className={`font-black ${
+                          themeMode === "dark" ? "text-[#F0B94D]" : "text-[#B87911]"
+                        }`}
+                      >
+                        {stagedItem.category} Block
+                      </h3>
                     </div>
                     <p className={`mb-2 text-xs ${theme.textMuted}`}>Compiled Data Preview:</p>
-                    <div className="min-h-[110px] rounded-lg bg-white p-4 text-sm text-gray-900 shadow-inner whitespace-pre-line">
+                    <div className="min-h-[110px] rounded-lg bg-white p-4 text-sm font-medium text-[#273A47] shadow-inner whitespace-pre-line">
                       {stagedItem.preview}
                     </div>
                   </div>
 
                   <div className="mt-auto">
-                    <p className="mb-2 text-center text-xs uppercase tracking-widest text-orange-400 animate-pulse">
+                    <p className="mb-2 text-center text-xs uppercase tracking-widest text-[#D7A038] animate-pulse">
                       Drag block below to canvas →
                     </p>
                     <motion.div
@@ -1342,7 +1773,7 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
                       onDragStart={(event) => handleInventoryDragStart(event, stagedItem)}
                       whileHover={{ scale: 1.02 }}
                       whileDrag={{ scale: 1.05, rotate: 2 }}
-                      className="cursor-grab rounded-xl border border-cyan-400 bg-gradient-to-r from-cyan-600 to-blue-600 p-4 text-center shadow-lg shadow-cyan-900/50 active:cursor-grabbing"
+                      className="cursor-grab rounded-xl border border-[#D39A2D] bg-[#104867] p-4 text-center shadow-[0_10px_24px_rgba(4,37,57,.20)] transition hover:bg-[#155572] active:cursor-grabbing"
                     >
                       <p className="font-black uppercase tracking-widest text-white">{stagedItem.label}</p>
                     </motion.div>
@@ -1359,7 +1790,7 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
             </AnimatePresence>
           </div>
 
-          <div className={`relative h-full overflow-y-auto rounded-lg p-8 shadow-2xl custom-scrollbar ${theme.canvas}`}>
+          <div data-tour="game-canvas" className={`relative h-full overflow-y-auto rounded-lg p-8 shadow-2xl custom-scrollbar ${theme.canvas}`}>
             <AnimatePresence>
               {feedback && (
                 <motion.div
@@ -1381,34 +1812,125 @@ export default function ResumeBuilderGame({ onBackToEntry }) {
       </div>
 
       <AnimatePresence>
+        {tourOpen ? <ResumeGameTour open={tourOpen} onClose={() => setTourOpen(false)} /> : null}
+        {rewardDialog ? (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[90] flex items-center justify-center bg-[#041E30]/85 p-5 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="resume-reward-title"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 12 }}
+              className="w-full max-w-md overflow-hidden rounded-[28px] border border-[#E0B75F] bg-[#FFFDF8] text-center shadow-[0_32px_100px_rgba(2,25,39,.45)]"
+            >
+              <div className="bg-[#083650] px-7 py-7 text-white">
+                <div className="mx-auto grid h-16 w-16 place-items-center rounded-full border border-[#F2C967] bg-[#FFF1C9] text-[#B9780E] shadow-[0_10px_28px_rgba(0,0,0,.18)]">
+                  <Trophy className="h-8 w-8" />
+                </div>
+                <p className="mt-4 text-[10px] font-black uppercase tracking-[0.22em] text-[#F1C665]">
+                  Resume Quest Complete
+                </p>
+                <h2 id="resume-reward-title" className="mt-2 text-2xl font-black tracking-[-0.03em]">
+                  {rewardDialog.status === "claiming"
+                    ? "Adding your reward…"
+                    : rewardDialog.status === "success"
+                    ? "You won 500 tokens!"
+                    : "Resume completed"}
+                </h2>
+                <p className="mt-2 text-sm font-medium text-[#C8D9E2]">
+                  {rewardDialog.profileLabel} has been marked as completed.
+                </p>
+              </div>
+
+              <div className="px-7 py-6">
+                {rewardDialog.status === "claiming" ? (
+                  <div className="space-y-3">
+                    <div className="mx-auto h-7 w-7 animate-spin rounded-full border-[3px] border-[#E6D4AE] border-t-[#C98A1D]" />
+                    <p className="text-sm font-semibold text-[#607D8D]">Securely adding 500 tokens to your CareerSense balance.</p>
+                  </div>
+                ) : rewardDialog.status === "success" ? (
+                  <>
+                    <div className="rounded-2xl border border-[#B9DDCF] bg-[#EDF8F3] px-5 py-4">
+                      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#27745D]">Added to main system tokens</p>
+                      <p className="mt-1 text-3xl font-black text-[#12634D]">+{Number(rewardDialog.tokensAwarded || 500).toLocaleString()}</p>
+                      {Number.isFinite(rewardDialog.tokensRemaining) ? (
+                        <p className="mt-1 text-xs font-semibold text-[#52766B]">New balance: {rewardDialog.tokensRemaining.toLocaleString()} tokens</p>
+                      ) : null}
+                    </div>
+                    <p className="mt-4 text-xs font-semibold text-[#6D8492]">
+                      {completedProfileIds.length} of {PROFILE_DATA.length} resumes completed · Up to {MAX_RESUME_REWARD_TOKENS.toLocaleString()} tokens available
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextProfile = PROFILE_DATA.find((profile) => !completedProfileIds.includes(profile.id));
+                        setRewardDialog(null);
+                        if (nextProfile) setActiveProfileId(nextProfile.id);
+                      }}
+                      className="mt-5 min-h-11 w-full rounded-xl bg-[#083650] px-5 text-sm font-black text-white transition hover:bg-[#124A68]"
+                    >
+                      {completedProfileIds.length === PROFILE_DATA.length ? "Finish Quest" : "Build Next Resume"}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold leading-6 text-[#9A4B45]">
+                      {rewardDialog.message || "Your reward could not be added right now."}
+                    </p>
+                    <p className="mt-2 text-xs text-[#6D8492]">Your completed resume is saved. Retry to add the reward to your system balance.</p>
+                    <div className="mt-5 grid grid-cols-2 gap-3">
+                      <button type="button" onClick={() => setRewardDialog(null)} className="min-h-11 rounded-xl border border-[#C9D7DF] bg-white text-sm font-black text-[#31566C]">Close</button>
+                      <button
+                        type="button"
+                        onClick={() => submitRewardClaim(activeProfile.id, rewardDialog.profileLabel)}
+                        className="min-h-11 rounded-xl bg-[#083650] text-sm font-black text-white transition hover:bg-[#124A68]"
+                      >
+                        Retry Reward
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {previewOpen ? (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-6 backdrop-blur-sm"
+            className="fixed inset-0 z-[80] flex items-center justify-center bg-[#041E30]/82 p-6 backdrop-blur-sm"
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 16 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 16 }}
-              className="relative flex h-full max-h-[96vh] w-full max-w-5xl flex-col rounded-3xl border border-slate-700 bg-slate-950 p-5 shadow-[0_30px_120px_rgba(15,23,42,0.55)]"
+              className="relative flex h-full max-h-[96vh] w-full max-w-5xl flex-col rounded-3xl border border-[#31566C] bg-[#082F48] p-5 shadow-[0_30px_120px_rgba(15,23,42,0.55)]"
             >
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-black uppercase tracking-[0.28em] text-cyan-100">A4 Preview</h2>
-                  <p className="mt-1 text-xs uppercase tracking-[0.22em] text-slate-400">Final resume page at A4 ratio</p>
+                  <h2 className="text-lg font-black uppercase tracking-[0.28em] text-white">A4 Preview</h2>
+                  <p className="mt-1 text-xs uppercase tracking-[0.22em] text-[#9BB1BE]">Final resume page at A4 ratio</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setPreviewOpen(false)}
-                  className="rounded-full border border-cyan-800 px-4 py-2 text-xs font-bold uppercase tracking-widest text-cyan-100 transition hover:bg-cyan-900/50"
+                  className="rounded-full border border-[#52758A] px-4 py-2 text-xs font-black uppercase tracking-widest text-[#E7F0F4] transition hover:border-[#D2A044] hover:text-[#F0C566]"
                 >
                   Close
                 </button>
               </div>
 
-              <div className="flex flex-1 items-start justify-center overflow-auto rounded-2xl bg-slate-900/70 p-6">
+              <div className="flex flex-1 items-start justify-center overflow-auto rounded-2xl bg-[#062840] p-6">
                 <div className="flex min-h-full w-full items-start justify-center">
                   {renderResumePage(true)}
                 </div>

@@ -3,6 +3,7 @@ import { evaluateFiftyPointAnalysis } from "./groqAIService";
 import { buildAdvancedReport } from "./atsReportBuilder";
 import { extractTextFromPDF, buildResumeStructure } from "../utils/resumeParser";
 import { getResumeFileBlob } from "./resumeApi";
+import { getSavedBasicReports } from "../basicreport/services/basicReportApi";
 
 // Helper to dynamically build category scores from raw analysis points
 const buildCategoryScores = (points) => {
@@ -118,6 +119,40 @@ export const getAnalysisReport = async (resumeId) => {
   const response = await apiClient.get(`/resumes/${resumeId}/analysis/latest`);
   const resumeResponse = await apiClient.get(`/resumes/${resumeId}`);
   const resume = resumeResponse.data;
+  const analysisData = response.data;
+
+  // Check if this analysis is actually a Basic report
+  const cachedBasic = (() => {
+    try {
+      const raw = window.sessionStorage.getItem(`careersense.basicReport.v1.${resumeId}`)
+        || window.localStorage.getItem(`careersense.basicReport.v1.${resumeId}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  })();
+
+  const isBasic =
+    analysisData?.report_level === "basic" ||
+    (Array.isArray(analysisData?.score_categories) && analysisData.score_categories.length > 0) ||
+    Boolean(cachedBasic?.score_categories);
+
+  if (isBasic) {
+    return {
+      data: {
+        ...(cachedBasic || analysisData),
+        report_level: "basic",
+        report_id: resume.resume_id,
+        resume_id: resume.resume_id,
+        resume_file_name: resume.file_name,
+        candidate_name: resume.candidate_name || cachedBasic?.candidate_name,
+        created_at: analysisData?.createdAt || resume.updatedAt,
+        overall_score: analysisData?.overall_score || resume.current_score,
+        has_job_description: !!(analysisData?.jdText || cachedBasic?.jdText),
+        report_type: (analysisData?.jdText || cachedBasic?.jdText) ? "resume_jd" : "resume",
+      }
+    };
+  }
   
   const categoryScores = buildCategoryScores(response.data.analysis_points);
   
@@ -146,6 +181,42 @@ export const saveAnalysisReport = async (analysisId) => {
 };
 
 export const getSavedReports = async () => {
+  const locallySavedBasicReports = getSavedBasicReports().map((report) => ({
+    report_id: report.resume_id,
+    resume_id: report.resume_id,
+    resume_file_name: report.resume_file_name,
+    candidate_name: report.candidate_name,
+    created_at: report.saved_at || report.created_at,
+    overall_score: report.overall_score,
+    has_job_description: report.analysis_type === "resume_jd" || Boolean(report.jdText),
+    report_type: report.analysis_type === "resume_jd" || report.jdText ? "resume_jd" : "resume",
+    report_level: "basic",
+    category_scores: report.score_categories || [],
+    tokens_cost: report.tokensCost || report.careerPoints || report.total_tokens || 0,
+    careerPoints: report.careerPoints || report.tokensCost || report.total_tokens || 0,
+    total_tokens: report.total_tokens || report.tokensCost || report.careerPoints || 0,
+  }));
+
+  const localCacheReports = (() => {
+    try {
+      const raw = window.localStorage.getItem("careersense_ats_reports_cache");
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    } catch {
+      return [];
+    }
+  })();
+
+  const mergedReports = new Map();
+  localCacheReports.forEach((report) => {
+    if (report?.report_id || report?.resume_id) {
+      mergedReports.set(String(report.report_id || report.resume_id), report);
+    }
+  });
+  locallySavedBasicReports.forEach((report) => {
+    mergedReports.set(String(report.report_id), report);
+  });
+
   try {
     const response = await apiClient.get("/all");
     const resumes = response.data.storedResumes || [];
@@ -153,16 +224,35 @@ export const getSavedReports = async () => {
     const reports = resumes
       .filter((r) => r.latestAnalysis && r.latestAnalysis.overall_score)
       .map((resume) => {
-        const categoryScores = buildCategoryScores(resume.latestAnalysis?.analysis_points);
+        const cachedBasic = (() => {
+          try {
+            const raw = window.sessionStorage.getItem(`careersense.basicReport.v1.${resume.resume_id}`)
+              || window.localStorage.getItem(`careersense.basicReport.v1.${resume.resume_id}`);
+            return raw ? JSON.parse(raw) : null;
+          } catch {
+            return null;
+          }
+        })();
+
+        const isBasic =
+          resume.latestAnalysis.report_level === "basic" ||
+          (Array.isArray(resume.latestAnalysis.score_categories) && resume.latestAnalysis.score_categories.length > 0) ||
+          Boolean(cachedBasic && cachedBasic.score_categories);
+
+        const categoryScores = isBasic
+          ? (resume.latestAnalysis.score_categories || cachedBasic?.score_categories || [])
+          : buildCategoryScores(resume.latestAnalysis?.analysis_points);
+
         return {
           report_id: resume.resume_id,
           resume_id: resume.resume_id,
           resume_file_name: resume.file_name,
-          candidate_name: resume.candidate_name,
+          candidate_name: resume.candidate_name || cachedBasic?.candidate_name,
           created_at: resume.latestAnalysis.createdAt || resume.updatedAt,
           overall_score: resume.latestAnalysis.overall_score || resume.current_score,
-          has_job_description: !!resume.latestAnalysis.jdText,
-          report_type: resume.latestAnalysis.jdText ? "resume_jd" : "resume",
+          has_job_description: !!(resume.latestAnalysis.jdText || cachedBasic?.jdText),
+          report_type: (resume.latestAnalysis.jdText || cachedBasic?.jdText) ? "resume_jd" : "resume",
+          report_level: isBasic ? "basic" : "detailed",
           category_scores: categoryScores,
           tokens_cost: resume.latestAnalysis.tokensCost || resume.latestAnalysis.careerPoints || resume.latestAnalysis.total_tokens || 0,
           careerPoints: resume.latestAnalysis.careerPoints || resume.latestAnalysis.tokensCost || resume.latestAnalysis.total_tokens || 0,
@@ -170,10 +260,24 @@ export const getSavedReports = async () => {
         };
       });
 
-    return { data: reports };
+    reports.forEach((report) => {
+      mergedReports.set(String(report.report_id), report);
+    });
+
+    const finalReportList = Array.from(mergedReports.values()).sort(
+      (a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0)
+    );
+
+    try {
+      window.localStorage.setItem("careersense_ats_reports_cache", JSON.stringify(finalReportList));
+    } catch {}
+
+    return {
+      data: finalReportList,
+    };
   } catch (err) {
     console.error("[getSavedReports Error]", err);
-    return { data: [] };
+    return { data: Array.from(mergedReports.values()) };
   }
 };
 

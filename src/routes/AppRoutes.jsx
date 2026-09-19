@@ -12,6 +12,7 @@ import Repository from "../pages/Repository";
 import UploadResume from "../pages/UploadResume";
 import { ResumeGamePage } from "../resume-game";
 import ProtectedRoute from "../components/common/ProtectedRoute";
+import { BasicATSReportPage } from "../basicreport";
 
 function AppRoutes() {
   return (
@@ -71,6 +72,14 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <ResumeGamePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/reports/basic/:analysisId"
+          element={
+            <ProtectedRoute>
+              <BasicATSReportPage />
             </ProtectedRoute>
           }
         />
