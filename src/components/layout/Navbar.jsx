@@ -22,6 +22,9 @@ import { SignedIn, SignedOut, SignInButton, useUser } from "@clerk/clerk-react";
 import useResumeStore from "../../store/useResumeStore";
 import colorLogo from "../../assets/logos/BlueLogo.png";
 import { calculateAtsUsage } from "../../services/subscriptionService";
+import { getSavedReports } from "../../services/reportApi";
+import { getResumes } from "../../services/resumeApi";
+import { getJobDescriptions } from "../../services/jobDescriptionApi";
 import goldenLogo from "../../assets/logos/GoldenLogo.png";
 import CustomUserButton from "../common/CustomUserButton";
 
@@ -31,6 +34,17 @@ const atsCareerTools = [
   { href: "https://careersenseai.com/interview-simulator", label: "Interview Simulator", description: "Practise role-specific interviews", icon: MessagesSquare, tone: "text-amber-700 bg-amber-100" },
   { href: "https://certifi.careersenseai.com/", label: "Skill Certification", description: "Prove job-ready capabilities", icon: Award, tone: "text-cyan-700 bg-cyan-100" },
 ];
+
+function getCachedItems(key) {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
 
 function Navbar() {
   const location = useLocation();
@@ -49,8 +63,18 @@ function Navbar() {
   const currentResume = useResumeStore((state) => state.currentResume);
   const isResumeJdFlow = !!(currentResume?.latestAnalysis?.jdText || location.pathname.includes("resume-jd"));
 
-  const [totalPoints, setTotalPoints] = React.useState(0);
-  const [estimatedCost, setEstimatedCost] = React.useState(0);
+  const [totalPoints, setTotalPoints] = React.useState(() => {
+    const cachedReports = getCachedItems("careersense_ats_reports_cache");
+    const cachedResumes = getCachedItems("careersense_ats_resumes_cache");
+    const cachedJd = getCachedItems("careersense_ats_jd_cache");
+    return calculateAtsUsage([], cachedReports, cachedResumes, cachedJd).totalPoints;
+  });
+  const [estimatedCost, setEstimatedCost] = React.useState(() => {
+    const cachedReports = getCachedItems("careersense_ats_reports_cache");
+    const cachedResumes = getCachedItems("careersense_ats_resumes_cache");
+    const cachedJd = getCachedItems("careersense_ats_jd_cache");
+    return calculateAtsUsage([], cachedReports, cachedResumes, cachedJd).estimatedCost;
+  });
 
   React.useEffect(() => {
     if (!user?.id) return;
@@ -58,20 +82,47 @@ function Navbar() {
       try {
         const apiBase = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_BASE_URL || "https://server.datasenseai.com";
         const backendUrl = apiBase.replace(/\/careersense\/ats\/?$/, "");
-        const res = await fetch(`${backendUrl}/careersense/subscription/status?clerkId=${user.id}`);
-        const data = await res.json();
-        if (data.success) {
-          setSubData({ plan: data.plan || "free", tokensRemaining: data.tokensRemaining ?? 30000 });
+
+        const [statusRes, ledgerRes, reportsResult, resumesResult, jdResult] = await Promise.allSettled([
+          fetch(`${backendUrl}/careersense/subscription/status?clerkId=${user.id}`),
+          fetch(`${backendUrl}/careersense/subscription/ledger?clerkId=${user.id}`),
+          getSavedReports(),
+          getResumes(),
+          getJobDescriptions(),
+        ]);
+
+        if (statusRes.status === "fulfilled") {
+          try {
+            const data = await statusRes.value.json();
+            if (data.success) {
+              setSubData({ plan: data.plan || "free", tokensRemaining: data.tokensRemaining ?? 30000 });
+            }
+          } catch {}
         }
 
-        const ledgerRes = await fetch(`${backendUrl}/careersense/subscription/ledger?clerkId=${user.id}`);
-        if (ledgerRes.ok) {
-          const ledgerData = await ledgerRes.json();
-          const serverLedger = Array.isArray(ledgerData.ledger) ? ledgerData.ledger : [];
-          const usage = calculateAtsUsage(serverLedger, [], [], []);
-          setTotalPoints(usage.totalPoints);
-          setEstimatedCost(usage.estimatedCost);
+        let serverLedger = [];
+        if (ledgerRes.status === "fulfilled" && ledgerRes.value?.ok) {
+          try {
+            const ledgerData = await ledgerRes.value.json();
+            serverLedger = Array.isArray(ledgerData.ledger) ? ledgerData.ledger : [];
+          } catch {}
         }
+
+        const reports = reportsResult.status === "fulfilled" && Array.isArray(reportsResult.value?.data)
+          ? reportsResult.value.data
+          : getCachedItems("careersense_ats_reports_cache");
+
+        const resumes = resumesResult.status === "fulfilled" && Array.isArray(resumesResult.value?.data)
+          ? resumesResult.value.data
+          : getCachedItems("careersense_ats_resumes_cache");
+
+        const jobDescriptions = jdResult.status === "fulfilled" && Array.isArray(jdResult.value?.data)
+          ? jdResult.value.data
+          : getCachedItems("careersense_ats_jd_cache");
+
+        const usage = calculateAtsUsage(serverLedger, reports, resumes, jobDescriptions);
+        setTotalPoints(usage.totalPoints);
+        setEstimatedCost(usage.estimatedCost);
       } catch (err) {
         console.error("Error fetching subscription in Navbar:", err);
       }
