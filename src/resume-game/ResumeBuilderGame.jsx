@@ -1362,7 +1362,7 @@ export default function ResumeBuilderGame({ onBackToEntry, audioActive = true })
         loop
         playsInline
       >
-        <source src="/Background1.mp4" type="video/mp4" />
+        <source src="https://d7exlrhix3get.cloudfront.net/ats-background.mp4" type="video/mp4" />
       </video>
       {!reduceMotion ? (
         <motion.div
