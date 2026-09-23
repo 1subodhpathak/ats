@@ -333,7 +333,7 @@ export default function ResumeGameEntry({
         "
       >
         <source
-          src="/Background.mp4"
+          src="https://d7exlrhix3get.cloudfront.net/ats-background.mp4"
           type="video/mp4"
         />
       </video>
