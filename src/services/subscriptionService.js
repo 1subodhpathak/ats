@@ -106,3 +106,34 @@ export const calculateAtsUsage = (ledger = [], reports = [], resumes = [], jobDe
     hasLedger: false
   };
 };
+
+export const isPaidPlan = (plan = '') => {
+  if (!plan) return false;
+  const p = String(plan).toLowerCase().trim();
+  return p !== 'free';
+};
+
+export const fetchSubscriptionStatus = async (clerkId) => {
+  if (!clerkId) return { plan: 'free', tokensRemaining: 30000 };
+  try {
+    const apiBase =
+      import.meta.env.VITE_API_URL ||
+      import.meta.env.VITE_BACKEND_URL ||
+      import.meta.env.VITE_API_BASE_URL ||
+      "https://server.datasenseai.com";
+    const backendUrl = apiBase.replace(/\/careersense\/ats\/?$/, "");
+    const res = await fetch(`${backendUrl}/careersense/subscription/status?clerkId=${clerkId}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.success) {
+        return {
+          plan: data.plan || 'free',
+          tokensRemaining: data.tokensRemaining ?? 30000,
+        };
+      }
+    }
+  } catch (err) {
+    console.error("Error fetching subscription status in subscriptionService:", err);
+  }
+  return { plan: 'free', tokensRemaining: 30000 };
+};
