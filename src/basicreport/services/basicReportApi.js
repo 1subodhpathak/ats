@@ -87,13 +87,107 @@ export function getSavedBasicReports() {
   }
 }
 
-function parseContent(content) {
-  const cleaned = String(content || "").replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```$/i, "").trim();
-  if (!cleaned) throw new Error("The analysis service returned an empty report.");
+function repairAndParseJson(content) {
+  if (!content || typeof content !== "string") {
+    return {};
+  }
+
+  // 1. Remove markdown code blocks if present
+  let cleaned = content
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
+
+  // 2. Fast path: standard JSON parse
   try {
     return JSON.parse(cleaned);
-  } catch {
-    throw new Error("The analysis response was incomplete. Please run the Basic report again.");
+  } catch (e1) {
+    // Proceed to repair
+  }
+
+  // 3. Extract JSON object substring between outer braces
+  const firstBrace = cleaned.indexOf("{");
+  const lastBrace = cleaned.lastIndexOf("}");
+  let candidate = firstBrace !== -1 && lastBrace > firstBrace
+    ? cleaned.substring(firstBrace, lastBrace + 1)
+    : cleaned;
+
+  try {
+    return JSON.parse(candidate);
+  } catch (e2) {
+    // Proceed to structural repairs
+  }
+
+  // 4. Clean trailing commas: e.g. ", }" or ", ]"
+  let repaired = candidate.replace(/,\s*([}\]])/g, "$1");
+
+  try {
+    return JSON.parse(repaired);
+  } catch (e3) {
+    // Proceed to bracket completion if truncated
+  }
+
+  // 5. Balance unclosed brackets/braces if the LLM output was truncated
+  let openBraces = 0;
+  let openBrackets = 0;
+  let inString = false;
+  let isEscaped = false;
+
+  for (let i = 0; i < repaired.length; i++) {
+    const char = repaired[i];
+    if (isEscaped) {
+      isEscaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      isEscaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (!inString) {
+      if (char === "{") openBraces++;
+      else if (char === "}") openBraces = Math.max(0, openBraces - 1);
+      else if (char === "[") openBrackets++;
+      else if (char === "]") openBrackets = Math.max(0, openBrackets - 1);
+    }
+  }
+
+  if (inString) repaired += '"';
+  while (openBrackets > 0) {
+    repaired += "]";
+    openBrackets--;
+  }
+  while (openBraces > 0) {
+    repaired += "}";
+    openBraces--;
+  }
+
+  try {
+    return JSON.parse(repaired);
+  } catch (e4) {
+    // 6. Regex key-value salvage if JSON is still malformed
+    const recovered = {};
+    const scoreMatch = content.match(/"overall_score"\s*:\s*(\d+)/i);
+    if (scoreMatch) recovered.overall_score = parseInt(scoreMatch[1], 10);
+
+    const rawScoreMatch = content.match(/"raw_score"\s*:\s*(\d+)/i);
+    if (rawScoreMatch) recovered.raw_score = parseInt(rawScoreMatch[1], 10);
+
+    const verdictMatch = content.match(/"verdict"\s*:\s*"([^"]+)"/i);
+    if (verdictMatch) recovered.verdict = verdictMatch[1];
+
+    const targetRoleMatch = content.match(/"target_role"\s*:\s*"([^"]+)"/i);
+    if (targetRoleMatch) recovered.target_role = targetRoleMatch[1];
+
+    const candidateMatch = content.match(/"candidate_name"\s*:\s*"([^"]+)"/i);
+    if (candidateMatch) recovered.candidate_name = candidateMatch[1];
+
+    console.warn("Recovered partial Basic report structure from raw text.");
+    return recovered;
   }
 }
 
@@ -112,9 +206,11 @@ export async function generateBasicAnalysisReport({ resume_id, jd_text = "" }) {
       model: "llama-3.3-70b-versatile",
       temperature: 0.1,
       max_tokens: 6000,
+      response_format: { type: "json_object" },
     });
-    const usage = aiResponse.data.usage || {};
-    const raw = parseContent(aiResponse.data.choices?.[0]?.message?.content);
+    const usage = aiResponse.data?.usage || {};
+    const rawContent = aiResponse.data?.choices?.[0]?.message?.content || "";
+    const raw = repairAndParseJson(rawContent);
     const totalTokens = usage.total_tokens || (usage.prompt_tokens || 0) + (usage.completion_tokens || 0);
     const report = normalizeBasicReport(raw, {
       resumeId: resume_id,

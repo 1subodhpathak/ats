@@ -30,6 +30,7 @@ import {
   ReportDepthGuide,
   ReportTypeSelector,
 } from "../basicreport";
+import InsufficientTokensModal from "../components/common/InsufficientTokensModal";
 
 import resumeUploadBackground from "../assets/home/resumeupload.png";
 
@@ -860,6 +861,11 @@ function ATSResumeUploadPage() {
 
   const [actionLoading, setActionLoading] = useState(false);
   const [reportLevel, setReportLevel] = useState(DEFAULT_REPORT_LEVEL);
+  const [tokenModal, setTokenModal] = useState({
+    isOpen: false,
+    currentBalance: 0,
+    minRequired: 5000,
+  });
 
 
   /* =======================================================
@@ -1013,12 +1019,26 @@ function ATSResumeUploadPage() {
         navigate(`/reports/analysis/${resumeData.resume_id}`);
       }
     } catch (error) {
-      setActionError(
-        error?.response?.data?.detail ||
-          error?.response?.data?.message ||
-          error?.message ||
-          "ATS analysis failed. Please try again in a moment."
-      );
+      const isTokenError =
+        error?.response?.status === 402 ||
+        error?.response?.data?.error === "INSUFFICIENT_TOKENS" ||
+        error?.response?.data?.message?.toLowerCase()?.includes("token") ||
+        error?.message?.toLowerCase()?.includes("token");
+
+      if (isTokenError) {
+        setTokenModal({
+          isOpen: true,
+          currentBalance: error?.response?.data?.currentBalance ?? 0,
+          minRequired: error?.response?.data?.minRequired ?? 5000,
+        });
+      } else {
+        setActionError(
+          error?.response?.data?.detail ||
+            error?.response?.data?.message ||
+            error?.message ||
+            "ATS analysis failed. Please try again in a moment."
+        );
+      }
     } finally {
       setActionLoading(false);
     }
@@ -1618,6 +1638,13 @@ function ATSResumeUploadPage() {
           )}
         </div>
       </section>
+
+      <InsufficientTokensModal
+        isOpen={tokenModal.isOpen}
+        onClose={() => setTokenModal((prev) => ({ ...prev, isOpen: false }))}
+        currentBalance={tokenModal.currentBalance}
+        minRequired={tokenModal.minRequired}
+      />
     </main>
   );
 }
