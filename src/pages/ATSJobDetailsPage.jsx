@@ -31,6 +31,7 @@ import {
   REPORT_LEVELS,
   ReportTypeSelector,
 } from "../basicreport";
+import InsufficientTokensModal from "../components/common/InsufficientTokensModal";
 
 import { getResume } from "../services/resumeApi";
 import useResumeStore from "../store/useResumeStore";
@@ -825,6 +826,12 @@ function ATSJobDetailsPage() {
       : DEFAULT_REPORT_LEVEL
   );
 
+  const [tokenModal, setTokenModal] = useState({
+    isOpen: false,
+    currentBalance: 0,
+    minRequired: 5000,
+  });
+
   const [
     storedJobLoadingId,
     setStoredJobLoadingId,
@@ -1146,14 +1153,32 @@ function ATSJobDetailsPage() {
         navigate(`/reports/analysis/${activeResumeId}`);
       }
     } catch (error) {
-      setAnalysisState({
-        status: "error",
-        error:
-          error?.response?.data?.detail ||
-          error?.response?.data?.message ||
-          error?.message ||
-          "ATS analysis failed. Please try again in a moment.",
-      });
+      const isTokenError =
+        error?.response?.status === 402 ||
+        error?.response?.data?.error === "INSUFFICIENT_TOKENS" ||
+        error?.response?.data?.message?.toLowerCase()?.includes("token") ||
+        error?.message?.toLowerCase()?.includes("token");
+
+      if (isTokenError) {
+        setTokenModal({
+          isOpen: true,
+          currentBalance: error?.response?.data?.currentBalance ?? 0,
+          minRequired: error?.response?.data?.minRequired ?? 5000,
+        });
+        setAnalysisState({
+          status: "idle",
+          error: "",
+        });
+      } else {
+        setAnalysisState({
+          status: "error",
+          error:
+            error?.response?.data?.detail ||
+            error?.response?.data?.message ||
+            error?.message ||
+            "ATS analysis failed. Please try again in a moment.",
+        });
+      }
     }
   };
 
@@ -1491,6 +1516,13 @@ function ATSJobDetailsPage() {
 
         </div>
       </section>
+
+      <InsufficientTokensModal
+        isOpen={tokenModal.isOpen}
+        onClose={() => setTokenModal((prev) => ({ ...prev, isOpen: false }))}
+        currentBalance={tokenModal.currentBalance}
+        minRequired={tokenModal.minRequired}
+      />
     </main>
   );
 }

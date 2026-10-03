@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import Loader from "../../components/common/Loader";
 import ReportGenerationLoader from "../../components/common/ReportGenerationLoader";
 import Toast from "../../components/common/Toast";
+import InsufficientTokensModal from "../../components/common/InsufficientTokensModal";
 import BasicATSPrintReport from "../components/BasicATSPrintReport";
 import { generateAnalysisReport } from "../../services/reportApi";
 import { getBasicAnalysisReport, saveBasicReportToRepository } from "../services/basicReportApi";
@@ -30,6 +31,7 @@ function BasicATSReportPage() {
   const [error, setError] = useState("");
   const [upgrading, setUpgrading] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [tokenModal, setTokenModal] = useState({ isOpen: false, currentBalance: 0, minRequired: 5000 });
   const acceptUpgradeRef = useRef(null);
   const [saveStatus, setSaveStatus] = useState("idle");
   const [saveMessage, setSaveMessage] = useState("");
@@ -70,7 +72,21 @@ function BasicATSReportPage() {
       await generateAnalysisReport({ resume_id: report.resume_id, jd_text: report.jdText || undefined });
       navigate(`/reports/analysis/${report.resume_id}`);
     } catch (requestError) {
-      setError(requestError?.response?.data?.detail || "Unable to generate the detailed analysis.");
+      const isTokenError =
+        requestError?.response?.status === 402 ||
+        requestError?.response?.data?.error === "INSUFFICIENT_TOKENS" ||
+        requestError?.response?.data?.message?.toLowerCase()?.includes("token") ||
+        requestError?.message?.toLowerCase()?.includes("token");
+
+      if (isTokenError) {
+        setTokenModal({
+          isOpen: true,
+          currentBalance: requestError?.response?.data?.currentBalance ?? 0,
+          minRequired: requestError?.response?.data?.minRequired ?? 5000,
+        });
+      } else {
+        setError(requestError?.response?.data?.detail || "Unable to generate the detailed analysis.");
+      }
       setUpgrading(false);
     }
   };
@@ -272,6 +288,13 @@ function BasicATSReportPage() {
           </div>
         </div>
       </div>
+
+      <InsufficientTokensModal
+        isOpen={tokenModal.isOpen}
+        onClose={() => setTokenModal((prev) => ({ ...prev, isOpen: false }))}
+        currentBalance={tokenModal.currentBalance}
+        minRequired={tokenModal.minRequired}
+      />
     </main>
   );
 }
