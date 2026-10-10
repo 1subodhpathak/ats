@@ -97,7 +97,7 @@ function Navbar() {
             if (data.success) {
               setSubData({ plan: data.plan || "free", tokensRemaining: data.tokensRemaining ?? 30000 });
             }
-          } catch {}
+          } catch { }
         }
 
         let serverLedger = [];
@@ -105,7 +105,7 @@ function Navbar() {
           try {
             const ledgerData = await ledgerRes.value.json();
             serverLedger = Array.isArray(ledgerData.ledger) ? ledgerData.ledger : [];
-          } catch {}
+          } catch { }
         }
 
         const reports = reportsResult.status === "fulfilled" && Array.isArray(reportsResult.value?.data)
@@ -213,22 +213,22 @@ function Navbar() {
   };
 
   const InternalUsagePill = () => (
-    <div className="hidden items-center gap-2 md:flex">
-      <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 shadow-2xs">
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-amber-50 text-amber-500 shrink-0">
-          <Star className="h-3.5 w-3.5" fill="currentColor" />
+    <div className="hidden items-center gap-2 xl:flex">
+      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-2.5 py-1.5 shadow-2xs">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-50 text-amber-500 shrink-0">
+          <Star className="h-3 w-3" fill="currentColor" />
         </div>
         <div className="flex flex-col text-left leading-none">
-          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 leading-tight">AI Tokens Remaining</p>
+          <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-slate-400 leading-tight">AI Tokens</p>
           <p className="text-xs font-black text-slate-900 leading-none mt-0.5">{(subData.tokensRemaining ?? 30000).toLocaleString()}</p>
         </div>
       </div>
-      <div className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white/90 px-3 py-1.5 shadow-2xs">
-        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 shrink-0">
-          <span className="text-xs font-black">$</span>
+      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-2.5 py-1.5 shadow-2xs">
+        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 shrink-0">
+          <span className="text-[11px] font-black">$</span>
         </div>
         <div className="flex flex-col text-left leading-none">
-          <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-slate-400 leading-tight">Bill</p>
+          <p className="text-[8.5px] font-bold uppercase tracking-[0.16em] text-slate-400 leading-tight">Bill</p>
           <p className="text-xs font-black text-slate-900 leading-none mt-0.5">${estimatedCost.toFixed(4)}</p>
         </div>
       </div>
@@ -320,6 +320,13 @@ function Navbar() {
         <span className="hidden 2xl:inline">Resume Quest</span>
       </Link>
 
+      <a
+        href="https://careersenseai.com/pricing"
+        className="flex h-10 items-center gap-2 rounded-xl border border-[#CFE0EC] bg-white/80 px-3 text-[13px] font-black text-[#2F4054] shadow-[0_8px_20px_rgba(16,36,90,0.045)] transition hover:-translate-y-0.5 hover:bg-white"
+      >
+        <span>Pricing</span>
+      </a>
+
       <Link to="/dashboard">
         <button
           type="button"
@@ -362,7 +369,7 @@ function Navbar() {
           {isLandingPage ? <LandingLogo /> : <InternalLogo />}
 
           {isLandingPage ? (
-            <nav className="hidden items-center gap-6 md:flex">
+            <nav className="hidden items-center gap-3.5 xl:gap-5 lg:flex">
               <div
                 className="relative shrink-0"
                 onMouseEnter={() => setToolsOpen(true)}
@@ -371,7 +378,7 @@ function Navbar() {
                 <button
                   type="button"
                   onClick={() => setToolsOpen((val) => !val)}
-                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#38566C] transition hover:text-[#B8791D]"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#38566C] transition hover:text-[#B8791D] whitespace-nowrap"
                 >
                   Career Tools
                   <ChevronDown className={`h-3.5 w-3.5 transition-transform ${toolsOpen ? "rotate-180" : ""}`} />
@@ -421,32 +428,39 @@ function Navbar() {
 
               <button
                 onClick={() => handleScroll("why-careersense")}
-                className="text-xs font-bold text-[#38566C] transition hover:text-[#B8791D]"
+                className="whitespace-nowrap text-xs font-bold text-[#38566C] transition hover:text-[#B8791D]"
               >
                 Why CareerSense
               </button>
 
               <button
                 onClick={() => handleScroll("ats-report-coverage")}
-                className="text-xs font-bold text-[#38566C] transition hover:text-[#B8791D]"
+                className="whitespace-nowrap text-xs font-bold text-[#38566C] transition hover:text-[#B8791D]"
               >
                 ATS Report
               </button>
 
               <button
                 onClick={() => handleScroll("how-it-works")}
-                className="text-xs font-bold text-[#38566C] transition hover:text-[#B8791D]"
+                className="whitespace-nowrap text-xs font-bold text-[#38566C] transition hover:text-[#B8791D]"
               >
                 How It Works
               </button>
 
+              <a
+                href="https://careersenseai.com/pricing"
+                className="whitespace-nowrap text-xs font-bold text-[#38566C] transition hover:text-[#B8791D]"
+              >
+                Pricing
+              </a>
+
               <Link
                 to="/play-with-resume"
-                className="relative inline-flex items-center gap-1.5 rounded-lg border border-[#D6A33D]/70 bg-[#FFF3D7] px-3 py-2 text-xs font-black text-[#8B5B0E] transition hover:border-[#C88A26] hover:bg-[#FFEAC0]"
+                className="relative inline-flex items-center gap-1.5 rounded-lg border border-[#D6A33D]/70 bg-[#FFF3D7] px-2.5 py-1.5 text-xs font-black text-[#8B5B0E] transition hover:border-[#C88A26] hover:bg-[#FFEAC0] whitespace-nowrap shrink-0"
               >
                 <Gamepad2 className="h-3.5 w-3.5" />
-                Resume Quest
-                <span className="absolute -right-3 -top-2 inline-flex items-center gap-1 rounded-full border border-[#BDE6D2] bg-[#EAF8F1] px-1.5 py-0.5 text-[8px] font-black uppercase leading-none tracking-[0.08em] text-[#147A56] shadow-sm">
+                <span>Resume Quest</span>
+                <span className="hidden 2xl:inline-flex items-center gap-1 rounded-full border border-[#BDE6D2] bg-[#EAF8F1] px-1.5 py-0.5 text-[8px] font-black uppercase leading-none tracking-[0.08em] text-[#147A56] shadow-sm">
                   <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#27A878] opacity-50 motion-reduce:animate-none" />
                     <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#16865E]" />
@@ -463,25 +477,25 @@ function Navbar() {
           )}
 
           {isLandingPage ? (
-            <div className="flex items-center gap-3">
-              <div className="hidden items-center gap-3 md:flex">
+            <div className="flex items-center gap-3 shrink-0">
+              <div className="hidden items-center gap-2 lg:flex">
                 <SignedOut>
                   <SignInButton mode="modal">
                     <button
                       type="button"
-                      className="flex items-center gap-1 rounded-lg border border-[#0B3453]/25 bg-[#FFFDF8] px-4 py-2 text-xs font-bold text-[#0B3453] transition hover:border-[#C88A26]/60 hover:bg-[#F8EEDB]"
+                      className="flex items-center gap-1 rounded-lg border border-[#0B3453]/25 bg-[#FFFDF8] px-3.5 py-2 text-xs font-bold text-[#0B3453] transition hover:border-[#C88A26]/60 hover:bg-[#F8EEDB] whitespace-nowrap"
                     >
                       Sign In
                     </button>
                   </SignInButton>
                 </SignedOut>
                 <SignedIn>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <InternalUsagePill />
                     <Link to="/dashboard" className="shrink-0">
                       <button
                         type="button"
-                        className="flex items-center gap-1 rounded-lg bg-[#0B3453] px-4 py-2 text-xs font-bold text-[#FFF9EC] shadow-sm transition hover:bg-[#124767]"
+                        className="flex items-center gap-1 rounded-lg bg-[#0B3453] px-3.5 py-2 text-xs font-bold text-[#FFF9EC] shadow-sm transition hover:bg-[#124767] whitespace-nowrap"
                       >
                         Dashboard
                         <ChevronRight className="h-3.5 w-3.5" />
@@ -498,7 +512,7 @@ function Navbar() {
               <button
                 type="button"
                 onClick={() => setIsMobileNavOpen((prev) => !prev)}
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#D6E1E9]/80 bg-white/80 text-[#2F4054] md:hidden shadow-xs hover:bg-white transition"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#D6E1E9]/80 bg-white/80 text-[#2F4054] lg:hidden shadow-xs hover:bg-white transition"
               >
                 {isMobileNavOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
               </button>
@@ -571,6 +585,14 @@ function Navbar() {
                   How It Works
                 </button>
 
+                <a
+                  href="https://careersenseai.com/pricing"
+                  onClick={() => setIsMobileNavOpen(false)}
+                  className="w-full text-left rounded-lg bg-white/40 px-3 py-2.5 text-xs font-bold text-slate-600 hover:bg-white transition block"
+                >
+                  Pricing
+                </a>
+
                 <Link
                   to="/play-with-resume"
                   onClick={() => setIsMobileNavOpen(false)}
@@ -635,9 +657,8 @@ function Navbar() {
                       const isCurrent = stepNumber === currentStep;
                       return (
                         <div key={step.key} className="flex items-center gap-2">
-                          <span className={`h-5 w-5 flex items-center justify-center rounded-full text-[10px] shrink-0 ${
-                            isComplete ? "bg-[#6D879A] text-white" : isCurrent ? "bg-[#2F4054] text-white" : "bg-[#D8E3EB] text-[#6B87A0]"
-                          }`}>
+                          <span className={`h-5 w-5 flex items-center justify-center rounded-full text-[10px] shrink-0 ${isComplete ? "bg-[#6D879A] text-white" : isCurrent ? "bg-[#2F4054] text-white" : "bg-[#D8E3EB] text-[#6B87A0]"
+                            }`}>
                             {isComplete ? "✓" : stepNumber}
                           </span>
                           <span className={isCurrent ? "text-[#2F4054] font-black" : "text-[#6B87A0]"}>
@@ -672,7 +693,14 @@ function Navbar() {
                   Start Resume Quest
                 </Link>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
+                  <a
+                    href="https://careersenseai.com/pricing"
+                    onClick={() => setIsMobileNavOpen(false)}
+                    className="flex h-10 items-center justify-center gap-1.5 rounded-xl border border-[#CFE0EC] bg-white px-2 text-[13px] font-black text-[#2F4054]"
+                  >
+                    Pricing
+                  </a>
                   <Link to="/dashboard" onClick={() => setIsMobileNavOpen(false)} className="w-full">
                     <button
                       type="button"
