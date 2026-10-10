@@ -9,7 +9,7 @@ export default function InsufficientTokensModal({
   if (!isOpen) return null;
 
   const handleGoToPricing = () => {
-    window.open("https://careersenseai.com/pricing", "_blank", "noopener,noreferrer");
+    window.location.href = "https://careersenseai.com/pricing";
   };
 
   return (
