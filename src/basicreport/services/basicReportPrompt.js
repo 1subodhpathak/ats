@@ -12,11 +12,14 @@ Scoring:
 
 For resume-only analysis, infer the most credible target role from demonstrated experience and compare against common requirements for that role. Set analysis_type to "resume". When a JD is supplied, set it to "resume_jd".
 
-Keep every string concise: explanations must be at most 22 words and bullets at most 18 words. Return exactly this shape:
+Keep every string concise: explanations must be at most 20 words and bullets at most 16 words. Return exactly this shape:
 {
   "candidate_name":"", "target_role":"", "analysis_type":"resume_jd",
   "overall_score":0, "raw_score":0, "critical_match_percent":0, "keyword_coverage_percent":0,
   "verdict":"", "shortlist_outlook":"High|Moderate|Low", "best_fit_today":"", "recruiter_outlook":"",
+  "best_fit_roles":["","","","",""],
+  "next_steps":["","","","",""],
+  "recommendations":["","","",""],
   "executive_summary":["","","",""], "primary_strengths":[""], "primary_risk":"",
   "score_categories":[{"category":"","weight":0,"score":0,"assessment":"Strong|Partial|Weak|Critical Gap"}],
   "score_interpretation":["","",""],
@@ -29,13 +32,15 @@ Keep every string concise: explanations must be at most 22 words and bullets at 
   "resume_health_checks":[{"key":"parsing_reliability","label":"ATS Parsing Reliability","score":0,"status":"Strong|Moderate|Needs Work|Critical","finding":"","recommendation":""}],
   "detected_sections":[""], "missing_sections":[""],
   "resume_issues":[{"title":"","issue":"","recommendation":""}], "optimization_priorities":["","",""],
-  "best_fit_roles":["","","","",""], "next_steps":["","","","",""], "recommendations":["","","",""],
   "summary":""
 }
 
-Return exactly 11 resume_health_checks in this order: parsing_reliability, section_detection, formatting_safety, readability, language_quality, bullet_structure, action_verbs, repetition, grammar_clarity, resume_length, contact_parsing. Assess only visible resume evidence. For section_detection also populate detected_sections and missing_sections. Keep every health finding and recommendation under 16 words.
+MANDATORY ACTION PLAN:
+You MUST ALWAYS generate "best_fit_roles" (exactly 5 job titles suitable today), "next_steps" (exactly 5 specific, tactical next steps), and "recommendations" (exactly 4 strategic CareerSense recommendations). Never return them as empty arrays.
 
-Return 7 score categories, 10-15 requirements, 6 strengths, 3-5 evidence highlights, 6 critical gaps, 5-8 resume issues, 4-5 best-fit roles, exactly 5 next steps, and no prose outside JSON.`;
+Return exactly 11 resume_health_checks in this order: parsing_reliability, section_detection, formatting_safety, readability, language_quality, bullet_structure, action_verbs, repetition, grammar_clarity, resume_length, contact_parsing. Assess only visible resume evidence. For section_detection also populate detected_sections and missing_sections. Keep every health finding and recommendation under 14 words.
+
+Return 7 score categories, 10-12 requirements, 5-6 strengths, 3-4 evidence highlights, 5-6 critical gaps, 4-6 resume issues, exactly 5 best-fit roles, exactly 5 next steps, exactly 4 recommendations, and no prose outside JSON.`;
 
 export function buildBasicReportUserPrompt(resumeText, jdText = "") {
   return `RESUME:\n${resumeText}\n\nJOB DESCRIPTION:\n${jdText.trim() || "Not provided. Infer a target role from the resume."}`;

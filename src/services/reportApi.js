@@ -84,6 +84,7 @@ export const generateAnalysisReport = async (payload) => {
 
       // Align the main overall_score with the mathematically calculated readiness score
       analysisReport.overall_score = advancedReport.visual_summary.overall_score;
+      analysisReport.report_level = "detailed";
 
       // Save the raw report to database
       await apiClient.post(`/resumes/${payload.resume_id}/analyze`, analysisReport);
@@ -91,19 +92,27 @@ export const generateAnalysisReport = async (payload) => {
       const resume = resumeResponse.data;
       const categoryScores = buildCategoryScores(analysisReport.analysis_points);
 
+      const generatedDetailedData = {
+        ...advancedReport,
+        report_level: "detailed",
+        report_id: payload.resume_id,
+        resume_id: payload.resume_id,
+        resume_file_name: resume.file_name,
+        candidate_name: resume.candidate_name || advancedReport.candidate_name,
+        created_at: new Date(),
+        overall_score: analysisReport.overall_score,
+        has_job_description: !!payload.jd_text,
+        report_type: payload.jd_text ? "resume_jd" : "resume",
+        category_scores: categoryScores,
+      };
+
+      try {
+        window.sessionStorage.setItem(`careersense.detailedReport.v1.${payload.resume_id}`, JSON.stringify(generatedDetailedData));
+        window.localStorage.setItem(`careersense.detailedReport.v1.${payload.resume_id}`, JSON.stringify(generatedDetailedData));
+      } catch {}
+
       return {
-        data: {
-          ...advancedReport,
-          report_id: payload.resume_id,
-          resume_id: payload.resume_id,
-          resume_file_name: resume.file_name,
-          candidate_name: resume.candidate_name || advancedReport.candidate_name,
-          created_at: new Date(),
-          overall_score: analysisReport.overall_score,
-          has_job_description: !!payload.jd_text,
-          report_type: payload.jd_text ? "resume_jd" : "resume",
-          category_scores: categoryScores,
-        }
+        data: generatedDetailedData
       };
     } finally {
       setTimeout(() => inFlightAnalysisRequests.delete(dedupKey), 5000);
@@ -116,8 +125,10 @@ export const generateAnalysisReport = async (payload) => {
 
 
 export const getAnalysisReport = async (resumeId) => {
-  const response = await apiClient.get(`/resumes/${resumeId}/analysis/latest`);
-  const resumeResponse = await apiClient.get(`/resumes/${resumeId}`);
+  const [response, resumeResponse] = await Promise.all([
+    apiClient.get(`/resumes/${resumeId}/analysis/latest`),
+    apiClient.get(`/resumes/${resumeId}`)
+  ]);
   const resume = resumeResponse.data;
   const analysisData = response.data;
 
@@ -132,10 +143,15 @@ export const getAnalysisReport = async (resumeId) => {
     }
   })();
 
-  const isBasic =
+  const hasDetailedAnalysis =
+    analysisData?.report_level === "detailed" ||
+    (Array.isArray(analysisData?.analysis_points) && analysisData.analysis_points.length > 0);
+
+  const isBasic = !hasDetailedAnalysis && (
     analysisData?.report_level === "basic" ||
     (Array.isArray(analysisData?.score_categories) && analysisData.score_categories.length > 0) ||
-    Boolean(cachedBasic?.score_categories);
+    Boolean(cachedBasic?.score_categories)
+  );
 
   if (isBasic) {
     return {
@@ -147,29 +163,30 @@ export const getAnalysisReport = async (resumeId) => {
         resume_file_name: resume.file_name,
         candidate_name: resume.candidate_name || cachedBasic?.candidate_name,
         created_at: analysisData?.createdAt || resume.updatedAt,
-        overall_score: analysisData?.overall_score || resume.current_score,
+        overall_score: cachedBasic?.overall_score || analysisData?.overall_score || resume.current_score,
         has_job_description: !!(analysisData?.jdText || cachedBasic?.jdText),
         report_type: (analysisData?.jdText || cachedBasic?.jdText) ? "resume_jd" : "resume",
       }
     };
   }
   
-  const categoryScores = buildCategoryScores(response.data.analysis_points);
+  const categoryScores = buildCategoryScores(analysisData?.analysis_points);
   
   // Re-build advanced report fields on-the-fly for compatibility
-  const advancedReport = buildAdvancedReport(response.data, resume.raw_text, resume.file_name);
+  const advancedReport = buildAdvancedReport(analysisData, resume.raw_text, resume.file_name);
 
   return {
     data: {
       ...advancedReport,
+      report_level: "detailed",
       report_id: resume.resume_id,
       resume_id: resume.resume_id,
       resume_file_name: resume.file_name,
       candidate_name: resume.candidate_name || advancedReport.candidate_name,
-      created_at: resume.latestAnalysis?.createdAt || resume.updatedAt,
-      overall_score: resume.latestAnalysis?.overall_score || resume.current_score,
-      has_job_description: !!resume.latestAnalysis?.jdText,
-      report_type: resume.latestAnalysis?.jdText ? "resume_jd" : "resume",
+      created_at: analysisData?.createdAt || resume.latestAnalysis?.createdAt || resume.updatedAt,
+      overall_score: analysisData?.overall_score || resume.latestAnalysis?.overall_score || resume.current_score,
+      has_job_description: !!(analysisData?.jdText || resume.latestAnalysis?.jdText),
+      report_type: (analysisData?.jdText || resume.latestAnalysis?.jdText) ? "resume_jd" : "resume",
       category_scores: categoryScores,
     }
   };
@@ -234,10 +251,15 @@ export const getSavedReports = async () => {
           }
         })();
 
-        const isBasic =
+        const hasDetailedAnalysis =
+          resume.latestAnalysis.report_level === "detailed" ||
+          (Array.isArray(resume.latestAnalysis.analysis_points) && resume.latestAnalysis.analysis_points.length > 0);
+
+        const isBasic = !hasDetailedAnalysis && (
           resume.latestAnalysis.report_level === "basic" ||
           (Array.isArray(resume.latestAnalysis.score_categories) && resume.latestAnalysis.score_categories.length > 0) ||
-          Boolean(cachedBasic && cachedBasic.score_categories);
+          Boolean(cachedBasic && cachedBasic.score_categories)
+        );
 
         const categoryScores = isBasic
           ? (resume.latestAnalysis.score_categories || cachedBasic?.score_categories || [])
@@ -249,7 +271,9 @@ export const getSavedReports = async () => {
           resume_file_name: resume.file_name,
           candidate_name: resume.candidate_name || cachedBasic?.candidate_name,
           created_at: resume.latestAnalysis.createdAt || resume.updatedAt,
-          overall_score: resume.latestAnalysis.overall_score || resume.current_score,
+          overall_score: isBasic
+            ? (cachedBasic?.overall_score || (resume.latestAnalysis.report_level === "basic" ? resume.latestAnalysis.overall_score : null) || resume.current_score)
+            : (resume.latestAnalysis.overall_score || resume.current_score),
           has_job_description: !!(resume.latestAnalysis.jdText || cachedBasic?.jdText),
           report_type: (resume.latestAnalysis.jdText || cachedBasic?.jdText) ? "resume_jd" : "resume",
           report_level: isBasic ? "basic" : "detailed",
@@ -261,7 +285,21 @@ export const getSavedReports = async () => {
       });
 
     reports.forEach((report) => {
-      mergedReports.set(String(report.report_id), report);
+      const existing = mergedReports.get(String(report.report_id));
+      const resolvedScore = (report.report_level === "basic" && existing?.overall_score && (!report.overall_score || report.overall_score < existing.overall_score))
+        ? existing.overall_score
+        : (report.overall_score || existing?.overall_score);
+
+      const resolvedReportLevel = (existing?.report_level === "detailed" || report.report_level === "detailed")
+        ? "detailed"
+        : (report.report_level || existing?.report_level || "basic");
+
+      mergedReports.set(String(report.report_id), {
+        ...(existing || {}),
+        ...report,
+        report_level: resolvedReportLevel,
+        overall_score: resolvedScore,
+      });
     });
 
     const finalReportList = Array.from(mergedReports.values()).sort(

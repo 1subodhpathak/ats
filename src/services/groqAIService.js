@@ -667,6 +667,17 @@ export const evaluateFiftyPointAnalysis = async (resumeText, jdText = null) => {
     const data = await requestCompletions(prompt, 0.15, 8192);
     return normalizeAnalysis(data, jdText);
   } catch (error) {
+    const isTokenOrAuthError =
+      error?.response?.status === 402 ||
+      error?.response?.status === 401 ||
+      error?.response?.data?.error === "INSUFFICIENT_TOKENS" ||
+      error?.response?.data?.message?.toLowerCase()?.includes("token") ||
+      error?.message?.toLowerCase()?.includes("token");
+
+    if (isTokenOrAuthError) {
+      throw error;
+    }
+
     console.error("Groq 50-point analysis failed, fallback to local heuristics:", error);
     return runLocalFiftyPointHeuristics(resumeText, isModeB, jdText);
   }
