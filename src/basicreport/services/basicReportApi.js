@@ -186,6 +186,12 @@ function repairAndParseJson(content) {
     const candidateMatch = content.match(/"candidate_name"\s*:\s*"([^"]+)"/i);
     if (candidateMatch) recovered.candidate_name = candidateMatch[1];
 
+    const bestFitMatch = content.match(/"best_fit_today"\s*:\s*"([^"]+)"/i);
+    if (bestFitMatch) recovered.best_fit_today = bestFitMatch[1];
+
+    const recruiterMatch = content.match(/"recruiter_outlook"\s*:\s*"([^"]+)"/i);
+    if (recruiterMatch) recovered.recruiter_outlook = recruiterMatch[1];
+
     console.warn("Recovered partial Basic report structure from raw text.");
     return recovered;
   }
@@ -198,10 +204,16 @@ export async function generateBasicAnalysisReport({ resume_id, jd_text = "" }) {
   const request = (async () => {
     const resumeResponse = await getResume(resume_id);
     const resume = resumeResponse.data;
+    const rawText = (resume.raw_text || "")
+      .replace(/[ \t]+/g, " ")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+    const boundedText = rawText.length > 18000 ? rawText.slice(0, 18000) + "\n...[truncated for length]" : rawText;
+
     const aiResponse = await apiClient.post("/ai/chat-completion", {
       messages: [
         { role: "system", content: BASIC_REPORT_SYSTEM_PROMPT },
-        { role: "user", content: buildBasicReportUserPrompt(resume.raw_text || "", jd_text) },
+        { role: "user", content: buildBasicReportUserPrompt(boundedText, jd_text) },
       ],
       model: "llama-3.3-70b-versatile",
       temperature: 0.1,

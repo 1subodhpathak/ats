@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import DownloadGateModal from "../components/common/DownloadGateModal";
 import { checkDownloadPass } from "../services/downloadGateService";
@@ -12,6 +12,7 @@ import {
   Download,
   Eye,
   FolderOpen,
+  Loader2,
   RefreshCw,
   Search,
   Target,
@@ -1101,6 +1102,7 @@ function ReportDashboardOverview({
   scorecardRows,
   onOpenResume,
   onDownloadPdf,
+  isDownloadingPdf = false,
 }) {
   const strongRequirements = (report?.jd_match_matrix || [])
     .filter((item) => normalizeAuditStatus(item.status) === "strong")
@@ -1283,7 +1285,17 @@ function ReportDashboardOverview({
           <p className="mt-3 truncate text-[10px] font-black text-[#0B3550]">{report?.resume_file_name}</p>
           <div className="mt-3 grid gap-2">
             <button type="button" onClick={onOpenResume} className="rounded-[9px] border border-[#D8E1E4] bg-white px-3 py-2 text-[9px] font-black text-[#0B3550] transition hover:bg-[#F7F2EA]">View Resume</button>
-            <button type="button" onClick={onDownloadPdf} className="rounded-[9px] border border-[#D8E1E4] bg-white px-3 py-2 text-[9px] font-black text-[#0B3550] transition hover:bg-[#F7F2EA]">Download Report</button>
+            <button
+              type="button"
+              onClick={onDownloadPdf}
+              disabled={isDownloadingPdf}
+              className="inline-flex items-center justify-center gap-1.5 rounded-[9px] border border-[#D8E1E4] bg-white px-3 py-2 text-[9px] font-black text-[#0B3550] transition hover:bg-[#F7F2EA] disabled:opacity-60"
+            >
+              {isDownloadingPdf ? (
+                <Loader2 className="h-3 w-3 animate-spin text-[#0B3550]" />
+              ) : null}
+              {isDownloadingPdf ? "Preparing..." : "Download Report"}
+            </button>
           </div>
         </div>
       </div>
@@ -1325,9 +1337,11 @@ function ReportDashboardOverview({
 function ATSReportPage() {
   const { user } = useUser();
   const { analysisId, reportId } = useParams();
-  const [report, setReport] = useState(null);
+  const location = useLocation();
+  const navigationDetailedReport = location.state?.detailedReport;
+  const [report, setReport] = useState(navigationDetailedReport || null);
   const [resume, setResume] = useState(null);
-  const [status, setStatus] = useState("loading");
+  const [status, setStatus] = useState(navigationDetailedReport ? "success" : "loading");
   const [error, setError] = useState("");
   const [saveStatus, setSaveStatus] = useState("idle");
   const [saveMessage, setSaveMessage] = useState("");
@@ -1344,6 +1358,7 @@ function ATSReportPage() {
   const [isVisualReportMinimized, setIsVisualReportMinimized] = useState(false);
   const [isReportPreviewOpen, setIsReportPreviewOpen] = useState(false);
   const [isDownloadGateOpen, setIsDownloadGateOpen] = useState(false);
+  const [isCheckingPass, setIsCheckingPass] = useState(false);
   const reportViewParams = useMemo(() => {
     if (typeof window === "undefined") {
       return new URLSearchParams();
@@ -1359,21 +1374,30 @@ function ATSReportPage() {
     let active = true;
 
     async function loadReport() {
-      setStatus("loading");
-      setError("");
-      setReport(null);
-      setResume(null);
+      if (!navigationDetailedReport) {
+        setStatus("loading");
+        setError("");
+        setReport(null);
+        setResume(null);
+      }
       try {
-        const reportResponse = reportId
-          ? await getSavedReport(reportId)
-          : await getAnalysisReport(analysisId);
+        let nextReport = navigationDetailedReport;
+        if (!nextReport) {
+          const reportResponse = reportId
+            ? await getSavedReport(reportId)
+            : await getAnalysisReport(analysisId);
+          nextReport = reportResponse.data;
+        }
 
         if (!active) {
           return;
         }
 
-        const nextReport = reportResponse.data;
-        if (nextReport?.report_level === "basic" || Array.isArray(nextReport?.score_categories)) {
+        const isActuallyBasic =
+          nextReport?.report_level === "basic" &&
+          (!Array.isArray(nextReport?.analysis_points) || nextReport.analysis_points.length === 0);
+
+        if (isActuallyBasic) {
           navigate(`/reports/basic/${nextReport.resume_id || analysisId || reportId}`, {
             replace: true,
             state: { basicReport: nextReport },
@@ -1405,7 +1429,7 @@ function ATSReportPage() {
     return () => {
       active = false;
     };
-  }, [analysisId, reportId]);
+  }, [analysisId, reportId, navigationDetailedReport]);
 
   useEffect(() => {
     if (
@@ -2745,18 +2769,24 @@ function ATSReportPage() {
   };
 
   const handleDownloadPdf = async () => {
-    if (!report || typeof window === "undefined") return;
+    if (!report || typeof window === "undefined" || isCheckingPass) return;
 
-    if (user?.id) {
-      try {
-        const passCheck = await checkDownloadPass(user.id, "ats_report", reportId || analysisId || "default");
-        if (!passCheck.canDownload) {
-          setIsDownloadGateOpen(true);
-          return;
-        }
-      } catch (e) {
-        console.warn("Download pass verification check error:", e);
+    if (!user?.id) {
+      setIsDownloadGateOpen(true);
+      return;
+    }
+
+    setIsCheckingPass(true);
+    try {
+      const passCheck = await checkDownloadPass(user.id, "ats_report", reportId || analysisId || "default");
+      if (!passCheck.canDownload) {
+        setIsDownloadGateOpen(true);
+        return;
       }
+    } catch (e) {
+      console.warn("Download pass verification check error:", e);
+    } finally {
+      setIsCheckingPass(false);
     }
 
     executeDownloadPdf();
@@ -2887,6 +2917,19 @@ function ATSReportPage() {
                   {report.saved_report_id ? "Saved" : saveStatus === "loading" ? "Saving..." : "Save"}
                 </Button>
 
+                <Link
+                  to={`/reports/basic/${report?.resume_id || analysisId || reportId}`}
+                  className="shrink-0"
+                >
+                  <Button
+                    variant="outline"
+                    className="shrink-0 whitespace-nowrap rounded-[9px] border border-white/20 bg-white/10 px-3 py-2 text-[9px] font-black text-white backdrop-blur-sm transition hover:bg-white/15"
+                    style={{ borderColor: "rgba(255,255,255,.2)", backgroundColor: "rgba(255,255,255,.09)", color: "#fff" }}
+                  >
+                    View Basic Report
+                  </Button>
+                </Link>
+
                 <Button
                   variant="outline"
                   onClick={openReportPreview}
@@ -2899,11 +2942,16 @@ function ATSReportPage() {
                 <Button
                   variant="outline"
                   onClick={handleDownloadPdf}
-                  className="shrink-0 whitespace-nowrap rounded-[9px] border border-white/20 bg-white/10 px-3 py-2 text-[9px] font-black text-white backdrop-blur-sm transition hover:bg-white/15"
+                  disabled={isCheckingPass}
+                  className="shrink-0 whitespace-nowrap rounded-[9px] border border-white/20 bg-white/10 px-3 py-2 text-[9px] font-black text-white backdrop-blur-sm transition hover:bg-white/15 disabled:opacity-60"
                   style={{ borderColor: "rgba(255,255,255,.2)", backgroundColor: "rgba(255,255,255,.09)", color: "#fff" }}
                 >
-                  <Download className="mr-1.5 h-3.5 w-3.5" />
-                  Download
+                  {isCheckingPass ? (
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin text-amber-400" />
+                  ) : (
+                    <Download className="mr-1.5 h-3.5 w-3.5" />
+                  )}
+                  {isCheckingPass ? "Preparing..." : "Download"}
                 </Button>
 
                 <Link to="/check-ats" className="shrink-0">
@@ -3014,6 +3062,7 @@ function ATSReportPage() {
                 scorecardRows={scorecardRows}
                 onOpenResume={() => setIsResumeViewerOpen(true)}
                 onDownloadPdf={handleDownloadPdf}
+                isDownloadingPdf={isCheckingPass}
               />
             ) : null}
 
@@ -3997,10 +4046,16 @@ function ATSReportPage() {
                 </Button>
                 <button
                   type="button"
-                  className="rounded-xl bg-[#0B3550] px-4 py-2.5 text-xs font-black text-white hover:bg-[#062B43] transition shadow-md"
+                  disabled={isCheckingPass}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[#0B3550] px-4 py-2.5 text-xs font-black text-white hover:bg-[#062B43] transition shadow-md disabled:opacity-60"
                   onClick={handleDownloadPdf}
                 >
-                  Download PDF
+                  {isCheckingPass ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-amber-400" />
+                  ) : (
+                    <Download className="h-3.5 w-3.5" />
+                  )}
+                  {isCheckingPass ? "Preparing..." : "Download PDF"}
                 </button>
               </div>
             </div>

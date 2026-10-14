@@ -1,13 +1,18 @@
 import { useEffect, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Coins, Download, FolderOpen, ListChecks, RefreshCw, X } from "lucide-react";
+import { ArrowUpRight, Check, ChevronLeft, ChevronRight, Coins, Download, FolderOpen, ListChecks, Loader2, Lock, RefreshCw, Sparkles, X } from "lucide-react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useUser } from "@clerk/clerk-react";
 import Loader from "../../components/common/Loader";
 import ReportGenerationLoader from "../../components/common/ReportGenerationLoader";
 import Toast from "../../components/common/Toast";
 import InsufficientTokensModal from "../../components/common/InsufficientTokensModal";
+import DownloadGateModal from "../../components/common/DownloadGateModal";
 import BasicATSPrintReport from "../components/BasicATSPrintReport";
 import { generateAnalysisReport } from "../../services/reportApi";
 import { getBasicAnalysisReport, saveBasicReportToRepository } from "../services/basicReportApi";
+import { checkDownloadPass } from "../../services/downloadGateService";
+import { fetchSubscriptionStatus, isPaidPlan } from "../../services/subscriptionService";
+import apiClient from "../../services/apiClient";
 import reportBackground from "../../assets/home/report.png";
 
 const BASIC_REPORT_SECTIONS = [
@@ -22,6 +27,7 @@ const BASIC_REPORT_SECTIONS = [
 ];
 
 function BasicATSReportPage() {
+  const { user } = useUser();
   const { analysisId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -31,12 +37,46 @@ function BasicATSReportPage() {
   const [error, setError] = useState("");
   const [upgrading, setUpgrading] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
-  const [tokenModal, setTokenModal] = useState({ isOpen: false, currentBalance: 0, minRequired: 5000 });
+  const [isPlanUpgradeModalOpen, setIsPlanUpgradeModalOpen] = useState(false);
+  const [isCheckingPlan, setIsCheckingPlan] = useState(false);
+  const [userPlan, setUserPlan] = useState("free");
+  const [tokensRemaining, setTokensRemaining] = useState(0);
+  const [isDownloadGateOpen, setIsDownloadGateOpen] = useState(false);
+  const [isCheckingPass, setIsCheckingPass] = useState(false);
+  const [tokenModal, setTokenModal] = useState({ isOpen: false, currentBalance: 0, minRequired: 15000 });
   const acceptUpgradeRef = useRef(null);
   const [saveStatus, setSaveStatus] = useState("idle");
   const [saveMessage, setSaveMessage] = useState("");
   const [isSidebarMinimized, setIsSidebarMinimized] = useState(false);
+  const [hasDetailedReport, setHasDetailedReport] = useState(false);
   const isPrintMode = new URLSearchParams(location.search).get("printMode") === "1";
+
+  useEffect(() => {
+    const resumeId = report?.resume_id || analysisId;
+    if (!resumeId) return;
+
+    try {
+      const cached = window.sessionStorage.getItem(`careersense.detailedReport.v1.${resumeId}`)
+        || window.localStorage.getItem(`careersense.detailedReport.v1.${resumeId}`);
+      if (cached) {
+        setHasDetailedReport(true);
+        return;
+      }
+    } catch {}
+
+    let active = true;
+    apiClient.get(`/resumes/${resumeId}/analysis/latest`)
+      .then((res) => {
+        if (!active) return;
+        const data = res?.data;
+        if (data?.report_level === "detailed" || (Array.isArray(data?.analysis_points) && data.analysis_points.length > 0)) {
+          setHasDetailedReport(true);
+        }
+      })
+      .catch(() => {});
+
+    return () => { active = false; };
+  }, [report?.resume_id, analysisId]);
 
   useEffect(() => {
     if (navigationReport) return undefined;
@@ -46,6 +86,18 @@ function BasicATSReportPage() {
       .catch((requestError) => { if (active) { setError(requestError?.response?.data?.detail || requestError?.message || "Unable to load the Basic ATS report."); setStatus("error"); } });
     return () => { active = false; };
   }, [analysisId, navigationReport]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let active = true;
+    fetchSubscriptionStatus(user.id).then((sub) => {
+      if (active && sub) {
+        setUserPlan(sub.plan || "free");
+        setTokensRemaining(sub.tokensRemaining ?? 0);
+      }
+    });
+    return () => { active = false; };
+  }, [user?.id]);
 
   useEffect(() => {
     if (status !== "success" || !new URLSearchParams(location.search).get("autoPrint")) return undefined;
@@ -63,14 +115,55 @@ function BasicATSReportPage() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isUpgradeModalOpen, upgrading]);
 
+  const handleUpgradeClick = async () => {
+    if (upgrading || isCheckingPlan) return;
+
+    if (hasDetailedReport) {
+      navigate(`/reports/analysis/${report?.resume_id || analysisId}`);
+      return;
+    }
+
+    setIsCheckingPlan(true);
+    try {
+      const sub = user?.id
+        ? await fetchSubscriptionStatus(user.id)
+        : { plan: "free", tokensRemaining: 0 };
+      setUserPlan(sub.plan || "free");
+      setTokensRemaining(sub.tokensRemaining ?? 0);
+
+      if (!isPaidPlan(sub.plan)) {
+        setIsPlanUpgradeModalOpen(true);
+        return;
+      }
+
+      if ((sub.tokensRemaining ?? 0) < 15000) {
+        setTokenModal({
+          isOpen: true,
+          currentBalance: sub.tokensRemaining ?? 0,
+          minRequired: 15000,
+        });
+        return;
+      }
+
+      setIsUpgradeModalOpen(true);
+    } catch {
+      setIsPlanUpgradeModalOpen(true);
+    } finally {
+      setIsCheckingPlan(false);
+    }
+  };
+
   const upgrade = async () => {
     if (!report || upgrading) return;
     setIsUpgradeModalOpen(false);
     setUpgrading(true);
     setError("");
     try {
-      await generateAnalysisReport({ resume_id: report.resume_id, jd_text: report.jdText || undefined });
-      navigate(`/reports/analysis/${report.resume_id}`);
+      const generated = await generateAnalysisReport({ resume_id: report.resume_id, jd_text: report.jdText || undefined });
+      setHasDetailedReport(true);
+      navigate(`/reports/analysis/${report.resume_id}`, {
+        state: { detailedReport: generated?.data },
+      });
     } catch (requestError) {
       const isTokenError =
         requestError?.response?.status === 402 ||
@@ -82,7 +175,7 @@ function BasicATSReportPage() {
         setTokenModal({
           isOpen: true,
           currentBalance: requestError?.response?.data?.currentBalance ?? 0,
-          minRequired: requestError?.response?.data?.minRequired ?? 5000,
+          minRequired: requestError?.response?.data?.minRequired ?? 15000,
         });
       } else {
         setError(requestError?.response?.data?.detail || "Unable to generate the detailed analysis.");
@@ -109,7 +202,7 @@ function BasicATSReportPage() {
     }
   };
 
-  const downloadReport = () => {
+  const executeDownloadReport = () => {
     if (!report?.resume_id) return;
 
     const printWindow = window.open("", "_blank");
@@ -132,6 +225,34 @@ function BasicATSReportPage() {
       printWindow.close();
       setError("Unable to prepare the Basic report download. Please try again.");
     }
+  };
+
+  const downloadReport = async () => {
+    if (!report?.resume_id || isCheckingPass) return;
+
+    if (!user?.id) {
+      setIsDownloadGateOpen(true);
+      return;
+    }
+
+    setIsCheckingPass(true);
+    try {
+      const passCheck = await checkDownloadPass(
+        user.id,
+        "ats_report",
+        report.resume_id || analysisId || "default"
+      );
+      if (!passCheck.canDownload) {
+        setIsDownloadGateOpen(true);
+        return;
+      }
+    } catch (e) {
+      console.warn("Download pass verification check error:", e);
+    } finally {
+      setIsCheckingPass(false);
+    }
+
+    executeDownloadReport();
   };
 
   if (status === "loading") return <div className="brand-type mx-auto max-w-5xl px-4 py-8"><Loader label="Loading Basic ATS report..." /></div>;
@@ -223,6 +344,84 @@ function BasicATSReportPage() {
         </div>
       ) : null}
 
+      {isPlanUpgradeModalOpen ? (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#041E30]/75 p-4 backdrop-blur-xs animate-in fade-in duration-200"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setIsPlanUpgradeModalOpen(false)}
+        >
+          <div
+            className="relative w-full max-w-md overflow-hidden rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-2xl transition-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => setIsPlanUpgradeModalOpen(false)}
+              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-[#F1F5F9] text-[#64748B] transition hover:bg-[#E2E8F0] hover:text-[#0F172A]"
+              aria-label="Close modal"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#E8CE92] bg-[#FFF6E3] text-[#A66B0D] shadow-xs">
+              <Sparkles className="h-7 w-7 text-[#D3A445]" />
+            </div>
+
+            <div className="mt-4 text-center">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[#D5A442]/45 bg-[#FFF3D9] px-3 py-1 text-[9px] font-black uppercase tracking-widest text-[#99620A]">
+                <Lock className="h-3 w-3" /> Pro Plan Feature
+              </span>
+              <h3 className="mt-2.5 text-xl font-black tracking-tight text-[#0B3B59]">
+                Unlock Detailed 50-Point Analysis
+              </h3>
+              <p className="mt-2 text-xs font-medium leading-relaxed text-[#617D8E]">
+                Detailed 50-Point Analysis is exclusive to paid plans. Upgrade your account to access in-depth recruiter checks, granular ATS scores, and bullet-by-bullet rewrites.
+              </p>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-[#E9F0F4] bg-[#F7FAFC] p-3.5 space-y-2.5">
+              <div className="flex items-center gap-2.5 text-xs font-semibold text-[#1A435D]">
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#E5F3FA] text-[#0B3B59]">
+                  <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                </div>
+                <span>50 comprehensive ATS diagnostic parameters</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-xs font-semibold text-[#1A435D]">
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#E5F3FA] text-[#0B3B59]">
+                  <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                </div>
+                <span>AI-powered line rewrites and impact metrics</span>
+              </div>
+              <div className="flex items-center gap-2.5 text-xs font-semibold text-[#1A435D]">
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#E5F3FA] text-[#0B3B59]">
+                  <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                </div>
+                <span>Full recruiter readiness scorecard</span>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse sm:flex-row items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsPlanUpgradeModalOpen(false)}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 transition"
+              >
+                Cancel
+              </button>
+              <a
+                href="https://careersenseai.com/pricing"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#0B3B59] to-[#0A4D78] text-xs font-bold text-white shadow-md hover:from-[#082E47] hover:to-[#083D60] transition"
+              >
+                Upgrade to Pro <ArrowUpRight className="h-4 w-4" />
+              </a>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="mx-auto max-w-[1680px] space-y-6">
         <section
           className="relative min-h-[235px] overflow-hidden rounded-[20px] border border-white/10 bg-cover bg-center text-white shadow-[0_22px_50px_rgba(6,43,67,.17)]"
@@ -254,8 +453,40 @@ function BasicATSReportPage() {
               <button onClick={saveToRepository} disabled={saveStatus === "loading" || Boolean(report.saved_report_id)} className="inline-flex shrink-0 items-center gap-2 rounded-[9px] border border-white/25 bg-white/10 px-3 py-2 text-[9px] font-black text-white backdrop-blur-sm transition hover:bg-white/15 disabled:cursor-default disabled:opacity-70">
                 <FolderOpen size={14} />{report.saved_report_id ? "Saved" : saveStatus === "loading" ? "Saving..." : "Save"}
               </button>
-              <button onClick={() => setIsUpgradeModalOpen(true)} disabled={upgrading} className="inline-flex shrink-0 items-center gap-2 rounded-[9px] border border-white/25 bg-white/10 px-3 py-2 text-[9px] font-black text-white backdrop-blur-sm transition hover:bg-white/15 disabled:opacity-60"><ListChecks size={14} />{upgrading ? "Generating..." : "Upgrade to Detailed 50 Point Analysis"}</button>
-              <button onClick={downloadReport} className="inline-flex shrink-0 items-center gap-2 rounded-[9px] border border-white/25 bg-white/10 px-3 py-2 text-[9px] font-black text-white backdrop-blur-sm transition hover:bg-white/15"><Download size={14} />Download</button>
+              <button
+                onClick={handleUpgradeClick}
+                disabled={upgrading || isCheckingPlan}
+                className="inline-flex shrink-0 items-center gap-2 rounded-[9px] border border-white/25 bg-white/10 px-3 py-2 text-[9px] font-black text-white backdrop-blur-sm transition hover:bg-white/15 disabled:opacity-60"
+              >
+                {isCheckingPlan ? (
+                  <Loader2 size={14} className="animate-spin text-amber-400" />
+                ) : hasDetailedReport ? (
+                  <ListChecks size={14} className="text-[#38BDF8]" />
+                ) : !isPaidPlan(userPlan) ? (
+                  <Lock size={13} className="text-[#E8B94F]" />
+                ) : (
+                  <ListChecks size={14} />
+                )}
+                {upgrading
+                  ? "Generating..."
+                  : isCheckingPlan
+                  ? "Checking plan..."
+                  : hasDetailedReport
+                  ? "View Detailed 50 Point Analysis"
+                  : "Upgrade to Detailed 50 Point Analysis"}
+              </button>
+              <button
+                onClick={downloadReport}
+                disabled={isCheckingPass}
+                className="inline-flex shrink-0 items-center gap-2 rounded-[9px] border border-white/25 bg-white/10 px-3 py-2 text-[9px] font-black text-white backdrop-blur-sm transition hover:bg-white/15 disabled:opacity-60"
+              >
+                {isCheckingPass ? (
+                  <Loader2 size={14} className="animate-spin text-amber-400" />
+                ) : (
+                  <Download size={14} />
+                )}
+                {isCheckingPass ? "Preparing..." : "Download"}
+              </button>
               <Link to="/check-ats" className="inline-flex shrink-0 items-center gap-2 rounded-[9px] border border-[#E8B94F] bg-[#E8B94F] px-3 py-2 text-[9px] font-black text-[#062B43]"><RefreshCw size={14} />New Check</Link>
             </div>
           </div>
@@ -294,6 +525,16 @@ function BasicATSReportPage() {
         onClose={() => setTokenModal((prev) => ({ ...prev, isOpen: false }))}
         currentBalance={tokenModal.currentBalance}
         minRequired={tokenModal.minRequired}
+      />
+
+      <DownloadGateModal
+        isOpen={isDownloadGateOpen}
+        onClose={() => setIsDownloadGateOpen(false)}
+        clerkUser={user}
+        resourceType="ats_report"
+        resourceId={report?.resume_id || analysisId || "default"}
+        resourceName="Basic ATS Analysis Report PDF"
+        onSuccessDownload={executeDownloadReport}
       />
     </main>
   );

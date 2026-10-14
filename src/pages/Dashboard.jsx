@@ -2443,30 +2443,6 @@ function ReportsSection({
                     }
                   />
 
-                  <a
-                    href={report.report_level === "basic" ? `/reports/basic/${report.report_id}?printMode=1&autoPrint=1` : getSavedReportPdfUrl(report.report_id)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="
-                      flex
-                      h-9
-                      items-center
-                      gap-2
-                      rounded-[8px]
-                      border
-                      border-[#D8E1E5]
-                      bg-white
-                      px-3
-                      text-[8px]
-                      font-black
-                      text-[#103650]
-                    "
-                  >
-                    <Download size={12} />
-                    PDF
-                  </a>
-
-
                   <Link
                     to={report.report_level === "basic" ? `/reports/basic/${report.report_id}` : `/repository/report/${report.report_id}`}
                     className="
