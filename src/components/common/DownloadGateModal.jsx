@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Download, ShieldCheck, Zap, ArrowUpRight, ArrowRight } from "lucide-react";
 import { SignInButton } from "@clerk/clerk-react";
 import { loadRazorpaySdk, createPassOrder, verifyPassPayment } from "../../services/downloadGateService";
@@ -10,6 +11,7 @@ export default function DownloadGateModal({
   resourceType = "ats_report",
   resourceId = "default",
   resourceName = "ATS Analysis Report PDF",
+  actionType = "download",
   onSuccessDownload,
 }) {
   const [loading, setLoading] = useState(false);
@@ -42,7 +44,7 @@ export default function DownloadGateModal({
         amount: orderData.amount,
         currency: orderData.currency || "INR",
         name: "CareerSense ATS",
-        description: `₹1 Download Pass - ${resourceName}`,
+        description: `₹1 ${actionType === "view" ? "Access Pass" : "Download Pass"} - ${resourceName}`,
         order_id: orderData.orderId,
         prefill: {
           name: clerkUser.fullName || clerkUser.firstName || "",
@@ -65,6 +67,14 @@ export default function DownloadGateModal({
 
             if (verifyRes.success) {
               setLoading(false);
+              try {
+                const raw = window.localStorage.getItem("careersense_unlocked_reports") || "[]";
+                const list = JSON.parse(raw);
+                if (resourceId && Array.isArray(list) && !list.includes(String(resourceId))) {
+                  list.push(String(resourceId));
+                  window.localStorage.setItem("careersense_unlocked_reports", JSON.stringify(list));
+                }
+              } catch {}
               onSuccessDownload?.();
               onClose();
             } else {
@@ -93,13 +103,13 @@ export default function DownloadGateModal({
     }
   };
 
-  return (
+  const modalContent = (
     <div
       className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-xs animate-in fade-in duration-200"
       role="dialog"
       aria-modal="true"
     >
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+      <div className="relative w-full max-w-[580px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-2xl">
         <button
           type="button"
           onClick={onClose}
@@ -109,19 +119,30 @@ export default function DownloadGateModal({
         </button>
 
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-50 text-cyan-600 border border-cyan-200 shadow-xs">
-          <Download className="h-7 w-7" />
+          {actionType === "view" ? (
+            <ShieldCheck className="h-7 w-7" />
+          ) : (
+            <Download className="h-7 w-7" />
+          )}
         </div>
 
         <div className="mt-4 text-center">
           <span className="inline-block rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-amber-800">
-            Nominal Download Fee
+            ONE-TIME TRANSACTION FEE
           </span>
           <h3 className="mt-2 text-xl font-black tracking-tight text-slate-900">
-            Unlock {resourceName}
+            {actionType === "view"
+              ? "Your ATS Report Is Ready to View"
+              : "Your ATS Report Is Ready to Download"}
           </h3>
-          <p className="mt-2.5 text-xs font-medium leading-relaxed text-slate-600">
-            We are charging a very minimal report download charge of <strong className="text-slate-900 font-bold">₹1</strong> to support our server infrastructure and processing costs. Once unlocked, you can access and re-download this report anytime.
-          </p>
+          <div className="mt-3 space-y-2 text-xs font-medium leading-relaxed text-slate-600">
+            <p>
+              A small transaction fee helps cover payment processing and platform operating costs, allowing us to keep CareerSense AI running smoothly and reliably.
+            </p>
+            <p>
+              Pay once to unlock your report, with the flexibility to access and {actionType === "view" ? "view" : "download"} it again anytime.
+            </p>
+          </div>
         </div>
 
         {error && (
@@ -146,7 +167,7 @@ export default function DownloadGateModal({
                 type="button"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#0B3B59] px-6 py-2.5 text-xs font-bold text-white shadow-md hover:bg-[#124b6e] transition"
               >
-                <span>Sign In to Pay ₹1</span>
+                <span>Sign In to Pay ₹1 & {actionType === "view" ? "View" : "Download"}</span>
                 <ArrowUpRight className="h-4 w-4" />
               </button>
             </SignInButton>
@@ -157,7 +178,7 @@ export default function DownloadGateModal({
               disabled={loading}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#0B3B59] to-[#0A64F4] px-6 py-2.5 text-xs font-bold text-white shadow-md hover:brightness-110 active:scale-95 transition disabled:opacity-60"
             >
-              <span>{loading ? "Opening Checkout..." : "Pay ₹1"}</span>
+              <span>{loading ? "Opening Checkout..." : `Pay ₹1 & ${actionType === "view" ? "View" : "Download"}`}</span>
               <ArrowUpRight className="h-4 w-4" />
             </button>
           )}
@@ -169,14 +190,20 @@ export default function DownloadGateModal({
             target="_blank"
             rel="noopener noreferrer"
             onClick={onClose}
-            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-[#0A64F4] transition"
+            className="inline-flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-500 hover:text-[#0A64F4] transition whitespace-nowrap"
           >
-            <Zap className="h-3.5 w-3.5 text-amber-500" />
-            <span>Need unlimited free downloads? Upgrade to Student Plan</span>
-            <ArrowRight className="h-3 w-3" />
+            <Zap className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />
+            <span>Want unlimited report downloads? Explore our Student Plan</span>
+            <ArrowRight className="h-3 w-3 shrink-0" />
           </a>
         </div>
       </div>
     </div>
   );
+
+  if (typeof document !== "undefined") {
+    return createPortal(modalContent, document.body);
+  }
+
+  return modalContent;
 }

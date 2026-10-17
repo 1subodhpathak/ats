@@ -10,7 +10,7 @@ const navItems = [
   { to: "/", label: "Home", icon: Home },
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/check-ats", label: "Check ATS", icon: ScanSearch },
-  { to: "/repository", label: "Repository", icon: FolderClock },
+  { to: "/dashboard?section=reports", label: "Reports", icon: FolderClock },
 ];
 
 function Sidebar() {

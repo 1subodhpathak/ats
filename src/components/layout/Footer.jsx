@@ -33,7 +33,7 @@ const productLinks = [
   },
   {
     label: "Saved Reports",
-    path: "/repository",
+    path: "/dashboard?section=reports",
   },
   {
     label: "Dashboard",

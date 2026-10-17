@@ -17,6 +17,8 @@ import {
   Gauge,
   HelpCircle,
   LayoutDashboard,
+  Loader2,
+  Lock,
   Menu,
   Sparkles,
   Star,
@@ -30,6 +32,8 @@ import CustomUserButton from "../components/common/CustomUserButton";
 import Loader from "../components/common/Loader";
 import Toast from "../components/common/Toast";
 import DashboardTour from "../tours/DashboardTour";
+import DownloadGateModal from "../components/common/DownloadGateModal";
+import { checkDownloadPass } from "../services/downloadGateService";
 
 import lightLogo from "../assets/logos/GoldenLogo.png";
 import dashboardBackground from "../assets/home/dashboard.png";
@@ -1664,7 +1668,8 @@ function RecentReports({
 
 
                   <Link
-                    to={report.report_level === "basic" ? `/reports/basic/${report.report_id}` : `/repository/report/${report.report_id}`}
+                    to="/dashboard?section=reports"
+                    onClick={onViewAll}
                     className="
                       flex
                       h-8
@@ -1683,29 +1688,6 @@ function RecentReports({
                     <Eye size={12} />
                     View
                   </Link>
-
-
-                  <a
-                    href={getSavedReportPdfUrl(
-                      report.report_id
-                    )}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="
-                      flex
-                      h-8
-                      w-8
-                      items-center
-                      justify-center
-                      rounded-[8px]
-                      border
-                      border-[#D8E1E5]
-                      bg-white
-                      text-[#103650]
-                    "
-                  >
-                    <Download size={12} />
-                  </a>
                 </div>
               </div>
             )
@@ -2287,7 +2269,136 @@ function OverviewSection({
 
 function ReportsSection({
   reports,
+  user,
+  subData,
 }) {
+  const navigate = useNavigate();
+  const [selectedReportForGate, setSelectedReportForGate] = useState(null);
+  const [checkingReportId, setCheckingReportId] = useState(null);
+  const [unlockedReportIds, setUnlockedReportIds] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem("careersense_unlocked_reports");
+      const list = raw ? JSON.parse(raw) : [];
+      return new Set(Array.isArray(list) ? list.map(String) : []);
+    } catch {
+      return new Set();
+    }
+  });
+
+  const isPaidUser = Boolean(subData?.plan && subData.plan !== "free");
+
+  useEffect(() => {
+    if (!user?.id || isPaidUser || !reports?.length) return;
+
+    let isMounted = true;
+    const toCheck = reports
+      .filter((r) => r.report_id && !unlockedReportIds.has(String(r.report_id)))
+      .slice(0, 10);
+
+    if (!toCheck.length) return;
+
+    Promise.allSettled(
+      toCheck.map((r) => checkDownloadPass(user.id, "ats_report", r.report_id))
+    ).then((results) => {
+      if (!isMounted) return;
+      const newlyUnlocked = [];
+      results.forEach((res, idx) => {
+        if (res.status === "fulfilled" && res.value?.canDownload) {
+          newlyUnlocked.push(String(toCheck[idx].report_id));
+        }
+      });
+      if (newlyUnlocked.length > 0) {
+        setUnlockedReportIds((prev) => {
+          const next = new Set(prev);
+          newlyUnlocked.forEach((id) => next.add(id));
+          try {
+            window.localStorage.setItem(
+              "careersense_unlocked_reports",
+              JSON.stringify([...next])
+            );
+          } catch {}
+          return next;
+        });
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, isPaidUser, reports]);
+
+  const handleOpenReport = async (report) => {
+    const targetUrl =
+      report.report_level === "basic"
+        ? `/reports/basic/${report.report_id}`
+        : `/repository/report/${report.report_id}`;
+
+    // Paid subscriber or already unlocked
+    if (isPaidUser || unlockedReportIds.has(String(report.report_id))) {
+      navigate(targetUrl);
+      return;
+    }
+
+    if (!user?.id) {
+      setSelectedReportForGate(report);
+      return;
+    }
+
+    setCheckingReportId(report.report_id);
+    try {
+      const passCheck = await checkDownloadPass(
+        user.id,
+        "ats_report",
+        report.report_id
+      );
+      if (passCheck?.canDownload) {
+        setUnlockedReportIds((prev) => {
+          const next = new Set(prev);
+          next.add(String(report.report_id));
+          try {
+            window.localStorage.setItem(
+              "careersense_unlocked_reports",
+              JSON.stringify([...next])
+            );
+          } catch {}
+          return next;
+        });
+        navigate(targetUrl);
+        return;
+      }
+    } catch (e) {
+      console.warn("Check pass error:", e);
+    } finally {
+      setCheckingReportId(null);
+    }
+
+    setSelectedReportForGate(report);
+  };
+
+  const handlePaymentSuccess = () => {
+    if (!selectedReportForGate) return;
+    const report = selectedReportForGate;
+    const targetUrl =
+      report.report_level === "basic"
+        ? `/reports/basic/${report.report_id}`
+        : `/repository/report/${report.report_id}`;
+
+    setUnlockedReportIds((prev) => {
+      const next = new Set(prev);
+      next.add(String(report.report_id));
+      try {
+        window.localStorage.setItem(
+          "careersense_unlocked_reports",
+          JSON.stringify([...next])
+        );
+      } catch {}
+      return next;
+    });
+
+    setSelectedReportForGate(null);
+    navigate(targetUrl);
+  };
+
   return (
     <Panel
       className="
@@ -2443,24 +2554,55 @@ function ReportsSection({
                     }
                   />
 
-                  <Link
-                    to={report.report_level === "basic" ? `/reports/basic/${report.report_id}` : `/repository/report/${report.report_id}`}
-                    className="
-                      flex
-                      h-9
-                      items-center
-                      gap-2
-                      rounded-[8px]
-                      bg-[#083B5B]
-                      px-4
-                      text-[8px]
-                      font-black
-                      text-white
-                    "
-                  >
-                    <Eye size={12} />
-                    View
-                  </Link>
+                  {(() => {
+                    const isUnlocked =
+                      isPaidUser ||
+                      unlockedReportIds.has(String(report.report_id));
+                    const isChecking =
+                      checkingReportId === report.report_id;
+
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenReport(report)}
+                        disabled={isChecking}
+                        className={`
+                          flex
+                          h-9
+                          items-center
+                          gap-2
+                          rounded-[8px]
+                          px-4
+                          text-[8px]
+                          font-black
+                          transition
+                          ${
+                            isUnlocked
+                              ? "bg-[#083B5B] text-white hover:bg-[#0d4d75]"
+                              : "border border-[#F3BA4C]/50 bg-[#0B2C44] text-[#F3BA4C] hover:border-[#F3BA4C] hover:bg-[#0e3957]"
+                          }
+                          ${isChecking ? "opacity-75 cursor-wait" : ""}
+                        `}
+                      >
+                        {isChecking ? (
+                          <>
+                            <Loader2 size={12} className="animate-spin text-[#F3BA4C]" />
+                            <span>Checking...</span>
+                          </>
+                        ) : isUnlocked ? (
+                          <>
+                            <Eye size={12} />
+                            <span>View</span>
+                          </>
+                        ) : (
+                          <>
+                            <Lock size={12} className="text-[#F3BA4C]" />
+                            <span>View</span>
+                          </>
+                        )}
+                      </button>
+                    );
+                  })()}
                 </div>
               </div>
             )
@@ -2499,6 +2641,23 @@ function ReportsSection({
           </div>
         )}
       </div>
+
+      {selectedReportForGate && (
+        <DownloadGateModal
+          isOpen={Boolean(selectedReportForGate)}
+          onClose={() => setSelectedReportForGate(null)}
+          clerkUser={user}
+          actionType="view"
+          resourceType="ats_report"
+          resourceId={selectedReportForGate?.report_id || "default"}
+          resourceName={
+            selectedReportForGate?.candidate_name ||
+            selectedReportForGate?.resume_file_name ||
+            "ATS Analysis Report"
+          }
+          onSuccessDownload={handlePaymentSuccess}
+        />
+      )}
     </Panel>
   );
 }
@@ -4482,6 +4641,12 @@ function Dashboard() {
                   <ReportsSection
                     reports={
                       reports
+                    }
+                    user={
+                      user
+                    }
+                    subData={
+                      subData
                     }
                   />
                 )}
