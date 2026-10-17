@@ -2,6 +2,7 @@ import { Outlet, useLocation } from "react-router-dom";
 
 import Footer from "./Footer";
 import Navbar from "./Navbar";
+import WelcomeTokensModal from "../common/WelcomeTokensModal";
 
 function AppLayout() {
   const location = useLocation();
@@ -16,6 +17,7 @@ function AppLayout() {
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden">
+      {!isPrintMode && !isEmbedded && <WelcomeTokensModal />}
       {!shouldHideNavbar ? <Navbar /> : null}
       <div className={shouldHideNavbar ? "w-full overflow-x-hidden" : "page-shell w-full overflow-x-hidden"}>
         <main className={shouldHideNavbar ? "min-w-0 overflow-x-hidden" : "min-w-0 space-y-4 overflow-x-hidden"}>

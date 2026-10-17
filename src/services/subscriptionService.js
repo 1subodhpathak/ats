@@ -114,7 +114,7 @@ export const isPaidPlan = (plan = '') => {
 };
 
 export const fetchSubscriptionStatus = async (clerkId) => {
-  if (!clerkId) return { plan: 'free', tokensRemaining: 30000 };
+  if (!clerkId) return { plan: 'free', tokensRemaining: 30000, hasSeenWelcomeModal: true };
   try {
     const apiBase =
       import.meta.env.VITE_API_URL ||
@@ -129,11 +129,31 @@ export const fetchSubscriptionStatus = async (clerkId) => {
         return {
           plan: data.plan || 'free',
           tokensRemaining: data.tokensRemaining ?? 30000,
+          hasSeenWelcomeModal: data.hasSeenWelcomeModal ?? false,
         };
       }
     }
   } catch (err) {
     console.error("Error fetching subscription status in subscriptionService:", err);
   }
-  return { plan: 'free', tokensRemaining: 30000 };
+  return { plan: 'free', tokensRemaining: 30000, hasSeenWelcomeModal: true };
+};
+
+export const dismissWelcomeModal = async (clerkId) => {
+  if (!clerkId) return;
+  try {
+    const apiBase =
+      import.meta.env.VITE_API_URL ||
+      import.meta.env.VITE_BACKEND_URL ||
+      import.meta.env.VITE_API_BASE_URL ||
+      "https://server.datasenseai.com";
+    const backendUrl = apiBase.replace(/\/careersense\/ats\/?$/, "");
+    await fetch(`${backendUrl}/careersense/subscription/dismiss-welcome-modal`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clerkId }),
+    });
+  } catch (err) {
+    console.error("Error dismissing welcome modal in subscriptionService:", err);
+  }
 };

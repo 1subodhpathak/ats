@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import DownloadGateModal from "../components/common/DownloadGateModal";
+import ATSReportNextStepsModal from "../components/common/ATSReportNextStepsModal";
 import { checkDownloadPass } from "../services/downloadGateService";
 import {
   BarChart3,
@@ -1356,9 +1357,11 @@ function ATSReportPage() {
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [isQuickScanMinimized, setIsQuickScanMinimized] = useState(false);
   const [isVisualReportMinimized, setIsVisualReportMinimized] = useState(false);
-  const [isReportPreviewOpen, setIsReportPreviewOpen] = useState(false);
   const [isDownloadGateOpen, setIsDownloadGateOpen] = useState(false);
   const [isCheckingPass, setIsCheckingPass] = useState(false);
+  const [isNextStepsModalOpen, setIsNextStepsModalOpen] = useState(false);
+  const [isReportPreviewOpen, setIsReportPreviewOpen] = useState(false);
+
   const reportViewParams = useMemo(() => {
     if (typeof window === "undefined") {
       return new URLSearchParams();
@@ -1369,6 +1372,20 @@ function ATSReportPage() {
   const isPdfPrintMode = reportViewParams.get("printMode") === "1";
   const shouldAutoPrint = reportViewParams.get("autoPrint") === "1";
   const isChromeHidden = isEmbeddedPreview || isPdfPrintMode;
+
+  useEffect(() => {
+    if (status !== "success" || !report || isChromeHidden) return;
+    const reportKey = reportId || analysisId || "default";
+    try {
+      const alreadySeen = sessionStorage.getItem(`cs_ats_nudge_seen_${reportKey}`);
+      if (!alreadySeen) {
+        const timer = setTimeout(() => {
+          setIsNextStepsModalOpen(true);
+        }, 1800);
+        return () => clearTimeout(timer);
+      }
+    } catch {}
+  }, [status, report, reportId, analysisId, isChromeHidden]);
 
   useEffect(() => {
     let active = true;
@@ -2873,7 +2890,7 @@ function ATSReportPage() {
             <div className="cs-report-hero-content flex min-h-[235px] flex-col justify-between gap-4 p-5 sm:p-6 lg:flex-row lg:items-end lg:p-7">
               <div className="max-w-[720px]">
                 <Link
-                  to="/repository"
+                  to="/dashboard?section=reports"
                   className="inline-flex items-center gap-2 text-[9px] font-bold text-[#D6E2E8] transition hover:text-white"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
@@ -2952,6 +2969,16 @@ function ATSReportPage() {
                     <Download className="mr-1.5 h-3.5 w-3.5" />
                   )}
                   {isCheckingPass ? "Preparing..." : "Download"}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={() => setIsNextStepsModalOpen(true)}
+                  className="shrink-0 whitespace-nowrap rounded-[9px] border border-[#E8B94F]/60 bg-[#E8B94F]/20 px-3 py-2 text-[9px] font-black text-[#E8B94F] backdrop-blur-sm transition hover:bg-[#E8B94F]/35"
+                  title="View Recommended Next Career Steps"
+                >
+                  <Sparkles className="mr-1.5 h-3.5 w-3.5 text-[#E8B94F]" />
+                  Next Steps
                 </Button>
 
                 <Link to="/check-ats" className="shrink-0">
@@ -4168,6 +4195,14 @@ function ATSReportPage() {
         resourceId={reportId || analysisId || "default"}
         resourceName="ATS Analysis Report PDF"
         onSuccessDownload={executeDownloadPdf}
+      />
+
+      <ATSReportNextStepsModal
+        isOpen={isNextStepsModalOpen}
+        onClose={() => setIsNextStepsModalOpen(false)}
+        score={report?.overall_score || report?.summary?.overall_score || 0}
+        targetRole={report?.extracted_jd_data?.jd_profile?.target_role || report?.target_role || ""}
+        analysisId={reportId || analysisId || ""}
       />
     </div>
   );

@@ -8,7 +8,6 @@ import ATSResumeUploadPage from "../pages/ATSResumeUploadPage";
 import Dashboard from "../pages/Dashboard";
 import Home from "../pages/Home";
 import NotFound from "../pages/NotFound";
-import Repository from "../pages/Repository";
 import UploadResume from "../pages/UploadResume";
 import { ResumeGamePage } from "../resume-game";
 import ProtectedRoute from "../components/common/ProtectedRoute";
@@ -93,11 +92,7 @@ function AppRoutes() {
         />
         <Route
           path="/repository"
-          element={
-            <ProtectedRoute>
-              <Repository />
-            </ProtectedRoute>
-          }
+          element={<Navigate to="/dashboard?section=reports" replace />}
         />
         <Route
           path="/repository/report/:reportId"
@@ -110,7 +105,7 @@ function AppRoutes() {
         <Route path="/analysis" element={<Navigate to="/check-ats" replace />} />
         <Route path="/editor" element={<Navigate to="/dashboard" replace />} />
         <Route path="/preview" element={<Navigate to="/dashboard" replace />} />
-        <Route path="/history" element={<Navigate to="/repository" replace />} />
+        <Route path="/history" element={<Navigate to="/dashboard?section=reports" replace />} />
         <Route path="/home" element={<Navigate to="/" replace />} />
       </Route>
       <Route path="*" element={<NotFound />} />

@@ -7,6 +7,7 @@ import ReportGenerationLoader from "../../components/common/ReportGenerationLoad
 import Toast from "../../components/common/Toast";
 import InsufficientTokensModal from "../../components/common/InsufficientTokensModal";
 import DownloadGateModal from "../../components/common/DownloadGateModal";
+import ATSReportNextStepsModal from "../../components/common/ATSReportNextStepsModal";
 import BasicATSPrintReport from "../components/BasicATSPrintReport";
 import { generateAnalysisReport } from "../../services/reportApi";
 import { getBasicAnalysisReport, saveBasicReportToRepository } from "../services/basicReportApi";
@@ -49,7 +50,22 @@ function BasicATSReportPage() {
   const [saveMessage, setSaveMessage] = useState("");
   const [isSidebarMinimized, setIsSidebarMinimized] = useState(false);
   const [hasDetailedReport, setHasDetailedReport] = useState(false);
+  const [isNextStepsModalOpen, setIsNextStepsModalOpen] = useState(false);
   const isPrintMode = new URLSearchParams(location.search).get("printMode") === "1";
+
+  useEffect(() => {
+    if (status !== "success" || !report || isPrintMode) return;
+    const reportKey = report?.resume_id || analysisId || "default";
+    try {
+      const alreadySeen = sessionStorage.getItem(`cs_ats_nudge_seen_${reportKey}`);
+      if (!alreadySeen) {
+        const timer = setTimeout(() => {
+          setIsNextStepsModalOpen(true);
+        }, 1600);
+        return () => clearTimeout(timer);
+      }
+    } catch {}
+  }, [status, report, analysisId, isPrintMode]);
 
   useEffect(() => {
     const resumeId = report?.resume_id || analysisId;
@@ -430,7 +446,7 @@ function BasicATSReportPage() {
           <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(4,38,60,.98)_0%,rgba(5,43,67,.93)_38%,rgba(5,43,67,.62)_65%,rgba(5,43,67,.12)_100%)]" />
           <div className="relative flex min-h-[235px] flex-col justify-between gap-4 p-5 sm:p-6 lg:flex-row lg:items-end lg:p-7">
             <div className="max-w-[730px]">
-              <Link to="/repository" className="inline-flex items-center gap-2 text-[9px] font-bold text-[#D6E2E8] transition hover:text-white">
+              <Link to="/dashboard?section=reports" className="inline-flex items-center gap-2 text-[9px] font-bold text-[#D6E2E8] transition hover:text-white">
                 <ChevronLeft size={14} />Back to Reports
               </Link>
               <div className="mt-4 flex items-center gap-3">
@@ -487,6 +503,14 @@ function BasicATSReportPage() {
                 )}
                 {isCheckingPass ? "Preparing..." : "Download"}
               </button>
+              <button
+                onClick={() => setIsNextStepsModalOpen(true)}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-[9px] border border-[#E8B94F]/60 bg-[#E8B94F]/20 px-3 py-2 text-[9px] font-black text-[#E8B94F] backdrop-blur-sm transition hover:bg-[#E8B94F]/35"
+                title="View Recommended Next Career Steps"
+              >
+                <Sparkles size={14} className="text-[#E8B94F]" />
+                Next Steps
+              </button>
               <Link to="/check-ats" className="inline-flex shrink-0 items-center gap-2 rounded-[9px] border border-[#E8B94F] bg-[#E8B94F] px-3 py-2 text-[9px] font-black text-[#062B43]"><RefreshCw size={14} />New Check</Link>
             </div>
           </div>
@@ -535,6 +559,14 @@ function BasicATSReportPage() {
         resourceId={report?.resume_id || analysisId || "default"}
         resourceName="Basic ATS Analysis Report PDF"
         onSuccessDownload={executeDownloadReport}
+      />
+
+      <ATSReportNextStepsModal
+        isOpen={isNextStepsModalOpen}
+        onClose={() => setIsNextStepsModalOpen(false)}
+        score={report?.overall_score || report?.score || 0}
+        targetRole={report?.target_role || ""}
+        analysisId={report?.resume_id || analysisId || ""}
       />
     </main>
   );
