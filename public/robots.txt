@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /check-ats/
+Disallow: /upload
+Disallow: /reports/
+Disallow: /repository/
+Disallow: /play-with-resume
+
+Sitemap: https://ats.careersenseai.com/sitemap.xml
