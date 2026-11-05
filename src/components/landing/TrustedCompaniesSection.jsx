@@ -4,15 +4,24 @@ import adityaImage from "../../assets/testimonials/aditya.png";
 import kavyaImage from "../../assets/testimonials/kavya.png";
 import meeraImage from "../../assets/testimonials/meera.png";
 
+import googleLogo from "../../assets/companies/google.svg";
+import microsoftLogo from "../../assets/companies/microsoft.svg";
+import amazonLogo from "../../assets/companies/amazon.svg";
+import metaLogo from "../../assets/companies/meta.svg";
+import jpmorganLogo from "../../assets/companies/jpmorgan.svg";
+import deloitteLogo from "../../assets/companies/deloitte.svg";
+import adobeLogo from "../../assets/companies/adobe.svg";
+import linkedinLogo from "../../assets/companies/linkedin.svg";
+
 const companies = [
-  { name: "Google", src: "https://api.iconify.design/logos:google.svg" },
-  { name: "Microsoft", src: "https://api.iconify.design/logos:microsoft.svg" },
-  { name: "Amazon", src: "https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg" },
-  { name: "Meta", src: "https://api.iconify.design/logos:meta.svg" },
-  { name: "JPMorgan Chase", src: "https://upload.wikimedia.org/wikipedia/commons/e/e0/JPMorgan_Chase.svg" },
-  { name: "Deloitte", src: "https://upload.wikimedia.org/wikipedia/commons/e/ed/Logo_of_Deloitte.svg" },
-  { name: "Adobe", src: "https://api.iconify.design/logos:adobe.svg" },
-  { name: "LinkedIn", src: "https://api.iconify.design/logos:linkedin.svg" }
+  { name: "Google", src: googleLogo },
+  { name: "Microsoft", src: microsoftLogo },
+  { name: "Amazon", src: amazonLogo },
+  { name: "Meta", src: metaLogo },
+  { name: "JPMorgan Chase", src: jpmorganLogo },
+  { name: "Deloitte", src: deloitteLogo },
+  { name: "Adobe", src: adobeLogo },
+  { name: "LinkedIn", src: linkedinLogo }
 ];
 
 const avatars = [aaravImage, meeraImage, adityaImage, kavyaImage];
