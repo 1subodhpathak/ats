@@ -1,5 +1,7 @@
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/(dashboard|check-ats|upload|play-with-resume|reports|repository|analysis|editor|preview|history)(.*)", "dest": "/app.html" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }
