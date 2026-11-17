@@ -520,6 +520,13 @@ async function prerender() {
 
     await writeFile(distHtmlPath, html, 'utf8');
     console.log('✓ Successfully prerendered ATS Resume Checker landing page into dist/index.html');
+
+    // Keep sitemap synced with current build date
+    const buildDate = new Date().toISOString().slice(0, 10);
+    const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url>\n    <loc>${siteUrl}/</loc>\n    <lastmod>${buildDate}</lastmod>\n    <changefreq>weekly</changefreq>\n    <priority>1.0</priority>\n  </url>\n</urlset>\n`;
+    await writeFile(new URL('../dist/sitemap.xml', import.meta.url), sitemapXml, 'utf8');
+    await writeFile(new URL('../public/sitemap.xml', import.meta.url), sitemapXml, 'utf8');
+    console.log(`✓ Updated sitemap.xml with build date ${buildDate}`);
   } catch (err) {
     console.error('Error during ATS prerender:', err);
     process.exit(1);
